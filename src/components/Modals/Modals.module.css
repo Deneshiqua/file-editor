@@ -1,0 +1,486 @@
+/* Shared modal styles */
+[data-fm-root] .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--fm-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    animation: fm-modal-overlay-fade-in 0.15s ease-out;
+    backdrop-filter: blur(4px);
+}
+
+@keyframes fm-modal-overlay-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+[data-fm-root] .modal {
+    background: var(--fm-bg);
+    border: 1px solid var(--fm-border);
+    border-radius: var(--fm-radius-lg);
+    box-shadow: var(--fm-shadow-xl);
+    min-width: 400px;
+    max-width: 90vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    animation: fm-modal-slide-in 0.2s ease-out;
+    overflow: hidden;
+}
+
+@keyframes fm-modal-slide-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+[data-fm-root] .modalLarge {
+    background: var(--fm-bg);
+    border: 1px solid var(--fm-border);
+    border-radius: var(--fm-radius-lg);
+    box-shadow: var(--fm-shadow-xl);
+    min-width: 400px;
+    max-width: 90vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    animation: fm-modal-slide-in 0.2s ease-out;
+    overflow: hidden;
+    width: 700px;
+}
+
+[data-fm-root] .modalEditor {
+    width: min(1200px, 94vw);
+    height: min(88vh, 900px);
+    max-width: 94vw;
+    max-height: 88vh;
+    overflow: visible;
+}
+
+[data-fm-root] .modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--fm-border);
+}
+
+[data-fm-root] .modalTitle {
+    font-size: var(--fm-font-size-lg);
+    font-weight: 600;
+    color: var(--fm-text);
+}
+
+[data-fm-root] .closeBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--fm-text-secondary);
+    cursor: pointer;
+    border-radius: var(--fm-radius-sm);
+    transition: all var(--fm-transition);
+}
+
+[data-fm-root] .closeBtn:hover {
+    background: var(--fm-hover);
+    color: var(--fm-text);
+}
+
+[data-fm-root] .modalBody {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+[data-fm-root] .modalBodyEditor {
+    padding: 0;
+    overflow: visible;
+}
+
+[data-fm-root] .modalFooter {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--fm-border);
+}
+
+/* Buttons */
+[data-fm-root] .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid var(--fm-border);
+    background: transparent;
+    color: var(--fm-text);
+    font-size: var(--fm-font-size-sm);
+    font-family: var(--fm-font);
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--fm-radius-sm);
+    transition: all var(--fm-transition);
+}
+
+[data-fm-root] .btn:hover {
+    background: var(--fm-hover);
+}
+
+[data-fm-root] .btnPrimary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid var(--fm-primary);
+    background: var(--fm-primary);
+    color: #fff;
+    font-size: var(--fm-font-size-sm);
+    font-family: var(--fm-font);
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--fm-radius-sm);
+    transition: all var(--fm-transition);
+}
+
+[data-fm-root] .btnPrimary:hover {
+    background: var(--fm-primary-hover);
+    border-color: var(--fm-primary-hover);
+}
+
+[data-fm-root] .btnPrimary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+[data-fm-root] .btnDanger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid var(--fm-danger);
+    background: var(--fm-danger);
+    color: #fff;
+    font-size: var(--fm-font-size-sm);
+    font-family: var(--fm-font);
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--fm-radius-sm);
+    transition: all var(--fm-transition);
+}
+
+[data-fm-root] .btnDanger:hover {
+    background: var(--fm-danger-hover);
+    border-color: var(--fm-danger-hover);
+}
+
+/* Input */
+[data-fm-root] .inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+[data-fm-root] .inputLabel {
+    font-size: var(--fm-font-size-sm);
+    font-weight: 500;
+    color: var(--fm-text-secondary);
+}
+
+[data-fm-root] .input {
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--fm-border);
+    border-radius: var(--fm-radius-sm);
+    background: var(--fm-bg-secondary);
+    color: var(--fm-text);
+    font-size: var(--fm-font-size-base);
+    font-family: var(--fm-font);
+    outline: none;
+    transition: all var(--fm-transition);
+}
+
+[data-fm-root] .input:focus {
+    border-color: var(--fm-primary);
+    box-shadow: 0 0 0 3px var(--fm-primary-light);
+}
+
+/* Upload specific */
+[data-fm-root] .dropZone {
+    border: 2px dashed var(--fm-border);
+    border-radius: var(--fm-radius);
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--fm-transition);
+    background: var(--fm-bg-secondary);
+}
+
+[data-fm-root] .dropZone:hover {
+    border-color: var(--fm-primary);
+    background: var(--fm-drop-zone-bg);
+}
+
+[data-fm-root] .dropZoneActive {
+    border: 2px dashed var(--fm-border);
+    border-radius: var(--fm-radius);
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--fm-transition);
+    border-color: var(--fm-primary);
+    background: var(--fm-drop-zone-bg);
+    border-style: solid;
+}
+
+[data-fm-root] .dropZoneIcon {
+    margin-bottom: 12px;
+    color: var(--fm-primary);
+}
+
+[data-fm-root] .dropZoneText {
+    font-size: var(--fm-font-size-base);
+    color: var(--fm-text);
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+[data-fm-root] .dropZoneSubtext {
+    font-size: var(--fm-font-size-sm);
+    color: var(--fm-text-muted);
+}
+
+[data-fm-root] .dropZoneBrowse {
+    color: var(--fm-primary);
+    cursor: pointer;
+    font-weight: 500;
+}
+
+[data-fm-root] .fileQueue {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+[data-fm-root] .fileQueueItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--fm-bg-secondary);
+    border-radius: var(--fm-radius-sm);
+    border: 1px solid var(--fm-border-light);
+}
+
+[data-fm-root] .fileQueueInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+[data-fm-root] .fileQueueName {
+    font-size: var(--fm-font-size-sm);
+    color: var(--fm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-fm-root] .fileQueueSize {
+    font-size: var(--fm-font-size-xs);
+    color: var(--fm-text-muted);
+}
+
+[data-fm-root] .progressBar {
+    width: 100%;
+    height: 4px;
+    background: var(--fm-border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+[data-fm-root] .progressFill {
+    height: 100%;
+    background: var(--fm-primary);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+[data-fm-root] .progressFillSuccess {
+    height: 100%;
+    background: var(--fm-success);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+[data-fm-root] .progressFillError {
+    height: 100%;
+    background: var(--fm-danger);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+[data-fm-root] .fileQueueRemove {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--fm-text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all var(--fm-transition);
+    flex-shrink: 0;
+}
+
+[data-fm-root] .fileQueueRemove:hover {
+    background: var(--fm-danger-light);
+    color: var(--fm-danger);
+}
+
+[data-fm-root] .statusIcon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+/* Preview specific */
+[data-fm-root] .previewContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    min-height: 300px;
+}
+
+[data-fm-root] .previewContainerEditor {
+    align-items: stretch;
+    gap: 0;
+    min-height: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+[data-fm-root] .previewImage {
+    max-width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: var(--fm-radius-sm);
+}
+
+[data-fm-root] .previewVideo {
+    max-width: 100%;
+    max-height: 60vh;
+    border-radius: var(--fm-radius-sm);
+}
+
+[data-fm-root] .previewAudio {
+    width: 100%;
+}
+
+[data-fm-root] .previewIframe {
+    width: 100%;
+    height: 60vh;
+    border: 1px solid var(--fm-border);
+    border-radius: var(--fm-radius-sm);
+}
+
+[data-fm-root] .previewText {
+    width: 100%;
+    max-height: 60vh;
+    overflow: auto;
+    padding: 16px;
+    background: var(--fm-bg-secondary);
+    border: 1px solid var(--fm-border);
+    border-radius: var(--fm-radius-sm);
+    font-family: var(--fm-font-mono);
+    font-size: var(--fm-font-size-sm);
+    color: var(--fm-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+[data-fm-root] .previewInfo {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--fm-bg-secondary);
+    border-radius: var(--fm-radius-sm);
+    font-size: var(--fm-font-size-sm);
+}
+
+[data-fm-root] .previewInfoLabel {
+    color: var(--fm-text-muted);
+    font-weight: 500;
+}
+
+[data-fm-root] .previewInfoValue {
+    color: var(--fm-text);
+    word-break: break-all;
+}
+
+/* Delete confirmation */
+[data-fm-root] .deleteMessage {
+    font-size: var(--fm-font-size-base);
+    color: var(--fm-text);
+    line-height: 1.5;
+}
+
+[data-fm-root] .deleteList {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--fm-bg-secondary);
+    border-radius: var(--fm-radius-sm);
+    border: 1px solid var(--fm-border-light);
+}
+
+[data-fm-root] .deleteListItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: var(--fm-font-size-sm);
+    color: var(--fm-text);
+}
+
+@media (max-width: 600px) {
+    [data-fm-root] .modal {
+        min-width: unset;
+        width: 95vw;
+    }
+
+    [data-fm-root] .modalLarge {
+        width: 95vw;
+    }
+}
+

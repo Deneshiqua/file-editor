@@ -1,36 +1,148 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Modern File Manager Pro
 
-## Getting Started
+Modern File Manager Pro is a Next.js file manager component with preview, upload, download, rename, move, copy, text editing, image editing, grid and list views, and pluggable storage adapters.
 
-First, run the development server:
+## What's New in 0.1.5
+
+- **Category Filtering**: Built-in file type filtering (All, Documents, Images, Media, Other)
+- **Initial Category**: Open FileManager with a specific category pre-selected using `initialCategory` config option
+- **Upload Restrictions**: When opened with a specific category, uploads are automatically restricted to matching file types
+- **Root Path Boundary**: FileManager now respects `rootPath` configuration and prevents navigation above it for security and isolation
+- **Grid View Truncation**: Long file/folder names are truncated to 15 characters in grid view with full name shown on hover
+- **Dark Theme Improvements**: Fixed hover effects in context menus for better visual feedback
+
+## What's New in 0.1.4
+
+- Fixed the published package so component class names resolve correctly in consuming apps.
+- FileManager styles continue to stay scoped under the FileManager root without relying on broken runtime CSS module maps.
+- Filerobot editor overrides remain active only while the FileManager image editor is open.
+- This release is intended to fix broken package rendering in host applications.
+
+## Features
+
+- File browsing with grid and list modes
+- Text editing with Monaco Editor
+- Image editing with Filerobot Image Editor
+- Preview support for images, videos, audio, PDF, and text files
+- Clipboard operations: cut, copy, paste
+- Optional Supabase Storage integration
+- Selection mode for file-picker workflows
+
+## Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install modern-fm-pro@0.1.5
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+If you want Supabase support:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install modern-fm-pro@0.1.5 @supabase/supabase-js
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Quick Start
 
-## Learn More
+```tsx
+import { FileManager, RestAdapter } from 'modern-fm-pro';
+import 'modern-fm-pro/styles.css';
 
-To learn more about Next.js, take a look at the following resources:
+const adapter = new RestAdapter('/api/files');
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+export default function Page() {
+  return (
+    <FileManager
+      adapter={adapter}
+      config={{
+        theme: 'dark',
+        viewMode: 'grid',
+        hideSystemFiles: true,
+        rootPath: '/uploads', // Prevent navigation above this path
+        initialCategory: 'images', // Optional: Start with images filter
+      }}
+    />
+  );
+}
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Adapters
 
-## Deploy on Vercel
+### RestAdapter
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`RestAdapter` expects a backend that implements the same HTTP contract as this repository's demo routes under `/api/files`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Use it when:
+
+- you control the backend
+- you want local or custom server-side storage
+- you can expose compatible file CRUD endpoints
+
+It is not a hosted storage layer by itself.
+
+### SupabaseAdapter
+
+```tsx
+import { FileManager, SupabaseAdapter } from 'modern-fm-pro';
+import 'modern-fm-pro/styles.css';
+
+const adapter = new SupabaseAdapter({
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  bucketName: 'file-manager',
+});
+
+export default function Page() {
+  return <FileManager adapter={adapter} config={{ theme: 'dark' }} />;
+}
+```
+
+Detailed setup: [SUPABASE_SETUP.md](./SUPABASE_SETUP.md)
+
+## Security Notes
+
+- Do not expose Supabase service role keys in the browser. Use only the public anon key on the client.
+- If you use `RestAdapter`, validate paths and permissions on the server. The UI is not a security boundary.
+- Publish only built artifacts. This package is configured to ship `dist`, not demo code, uploads, `.env`, or `.next` output.
+- Review upload limits, allowed MIME types, and authorization rules in your backend or Supabase bucket policies.
+
+## Package Outputs
+
+The published package exposes:
+
+- `modern-fm-pro`
+- `modern-fm-pro/styles.css`
+
+Current publish payload is limited to:
+
+- `dist`
+- `README.md`
+- `SUPABASE_SETUP.md`
+
+## Local Development
+
+Run the demo application locally:
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Publishing
+
+Validate the package before publishing:
+
+```bash
+npm run build:package
+npm run pack:check
+```
+
+Publish publicly to npm:
+
+```bash
+npm publish --access public
+```
+
+## Repository
+
+Source repository: https://github.com/deneshiqua/modern-fm-pro

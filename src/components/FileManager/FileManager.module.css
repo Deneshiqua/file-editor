@@ -1,0 +1,80 @@
+[data-fm-root].fileManager {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--fm-border);
+    border-radius: var(--fm-radius-lg);
+    overflow: hidden;
+    background: var(--fm-bg);
+    font-family: var(--fm-font);
+    font-size: var(--fm-font-size-base);
+    color: var(--fm-text);
+    box-shadow: var(--fm-shadow-lg);
+    position: relative;
+}
+
+[data-fm-root] .body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+[data-fm-root] .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+
+[data-fm-root] .contentArea {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+[data-fm-root] .contentArea::-webkit-scrollbar {
+    width: 6px;
+}
+
+[data-fm-root] .contentArea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+[data-fm-root] .contentArea::-webkit-scrollbar-thumb {
+    background: var(--fm-scrollbar-thumb);
+    border-radius: 3px;
+}
+
+[data-fm-root] .contentArea::-webkit-scrollbar-thumb:hover {
+    background: var(--fm-scrollbar-thumb-hover);
+}
+
+[data-fm-root] .loadingOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.05);
+    z-index: 10;
+    pointer-events: none;
+}
+
+[data-fm-root] .spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--fm-border);
+    border-top-color: var(--fm-primary);
+    border-radius: 50%;
+    animation: fm-file-manager-spin 0.7s linear infinite;
+}
+
+@keyframes fm-file-manager-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

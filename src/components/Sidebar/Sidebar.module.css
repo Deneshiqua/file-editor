@@ -1,0 +1,129 @@
+[data-fm-root] .sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--fm-sidebar-bg);
+    border-right: 1px solid var(--fm-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+[data-fm-root] .sidebarHeader {
+    padding: 12px 14px 8px;
+    font-size: var(--fm-font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--fm-text-muted);
+}
+
+[data-fm-root] .treeContainer {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 6px 8px;
+}
+
+[data-fm-root] .treeContainer::-webkit-scrollbar {
+    width: 5px;
+}
+
+[data-fm-root] .treeContainer::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+[data-fm-root] .treeContainer::-webkit-scrollbar-thumb {
+    background: var(--fm-scrollbar-thumb);
+    border-radius: 3px;
+}
+
+[data-fm-root] .treeItem {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 8px;
+    border-radius: var(--fm-radius-sm);
+    cursor: pointer;
+    font-size: var(--fm-font-size-sm);
+    color: var(--fm-text-secondary);
+    transition: all var(--fm-transition);
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-fm-root] .treeItem:hover {
+    background: var(--fm-hover);
+    color: var(--fm-text);
+}
+
+[data-fm-root] .treeItemActive {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 8px;
+    border-radius: var(--fm-radius-sm);
+    cursor: pointer;
+    font-size: var(--fm-font-size-sm);
+    transition: all var(--fm-transition);
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--fm-selected);
+    color: var(--fm-primary);
+    font-weight: 500;
+}
+
+[data-fm-root] .treeItemName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-fm-root] .toggleIcon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--fm-transition);
+}
+
+[data-fm-root] .toggleIconExpanded {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--fm-transition);
+    transform: rotate(90deg);
+}
+
+[data-fm-root] .childrenContainer {
+    padding-left: 12px;
+}
+
+[data-fm-root] .rootItem {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 8px;
+    border-radius: var(--fm-radius-sm);
+    cursor: pointer;
+    font-size: var(--fm-font-size-sm);
+    transition: all var(--fm-transition);
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    color: var(--fm-text);
+}
+
+@media (max-width: 768px) {
+    [data-fm-root] .sidebar {
+        display: none;
+    }
+}

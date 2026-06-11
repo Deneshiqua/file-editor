@@ -1,0 +1,53 @@
+[data-fm-root] .statusBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 14px;
+    background: var(--fm-statusbar-bg);
+    border-top: 1px solid var(--fm-border);
+    font-size: var(--fm-font-size-xs);
+    color: var(--fm-text-muted);
+    min-height: 28px;
+    flex-shrink: 0;
+}
+
+[data-fm-root] .statusLeft {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+[data-fm-root] .statusRight {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+[data-fm-root] .statusItem {
+    white-space: nowrap;
+}
+
+[data-fm-root] .errorBanner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: var(--fm-danger-light);
+    color: var(--fm-danger);
+    font-size: var(--fm-font-size-sm);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+[data-fm-root] .errorDismiss {
+    border: none;
+    background: transparent;
+    color: var(--fm-danger);
+    cursor: pointer;
+    font-size: var(--fm-font-size-sm);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+[data-fm-root] .errorDismiss:hover {
+    background: rgba(239, 68, 68, 0.15);
+}

@@ -1,24 +1,73 @@
 {
-  "name": "file-editor",
-  "version": "0.1.0",
-  "private": true,
+  "name": "modern-fm-pro",
+  "version": "0.1.5",
+  "private": false,
+  "homepage": "https://github.com/deneshiqua/modern-fm-pro",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deneshiqua/modern-fm-pro.git"
+  },
+  "bugs": {
+    "url": "https://github.com/deneshiqua/modern-fm-pro/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./styles.css": {
+      "default": "./dist/index.css"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "SUPABASE_SETUP.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:package": "tsup",
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm run build:package && npm run pack:check",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "16.1.6",
-    "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "@monaco-editor/react": "^4.7.0",
+    "react-filerobot-image-editor": "^5.0.0-beta.153"
   },
   "devDependencies": {
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "tsup": "^8.5.0",
     "typescript": "^5"
+  },
+  "peerDependencies": {
+    "next": "^16.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@supabase/supabase-js": "^2.101.1"
+  },
+  "peerDependenciesMeta": {
+    "@supabase/supabase-js": {
+      "optional": true
+    }
   }
 }

@@ -1,0 +1,186 @@
+[data-fm-root] .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fm-font-size-sm);
+}
+
+[data-fm-root] .thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+[data-fm-root] .headerRow {
+    background: var(--fm-bg-secondary);
+    border-bottom: 1px solid var(--fm-border);
+}
+
+[data-fm-root] .headerCell {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--fm-text-secondary);
+    font-size: var(--fm-font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color var(--fm-transition);
+    border: none;
+    background: transparent;
+    font-family: var(--fm-font);
+}
+
+[data-fm-root] .headerCell:hover {
+    color: var(--fm-text);
+}
+
+[data-fm-root] .headerCellActive {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--fm-primary);
+    font-size: var(--fm-font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color var(--fm-transition);
+    border: none;
+    background: transparent;
+    font-family: var(--fm-font);
+}
+
+[data-fm-root] .sortIndicator {
+    margin-left: 4px;
+    font-size: 10px;
+}
+
+[data-fm-root] .row {
+    border-bottom: 1px solid var(--fm-border-light);
+    cursor: pointer;
+    transition: background var(--fm-transition);
+}
+
+[data-fm-root] .row:hover {
+    background: var(--fm-hover);
+}
+
+[data-fm-root] .rowSelected {
+    border-bottom: 1px solid var(--fm-border-light);
+    cursor: pointer;
+    transition: background var(--fm-transition);
+    background: var(--fm-selected);
+}
+
+[data-fm-root] .rowSelected:hover {
+    background: var(--fm-active);
+}
+
+[data-fm-root] .cell {
+    padding: 6px 12px;
+    color: var(--fm-text);
+    vertical-align: middle;
+}
+
+[data-fm-root] .nameCell {
+    padding: 6px 12px;
+    color: var(--fm-text);
+    vertical-align: middle;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+[data-fm-root] .checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: var(--fm-input-bg);
+    border: 2px solid var(--fm-border);
+    border-radius: 3px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+[data-fm-root] .checkbox:hover {
+    border-color: var(--fm-primary);
+}
+
+[data-fm-root] .checkbox:checked {
+    background-color: var(--fm-primary);
+    border-color: var(--fm-primary);
+}
+
+[data-fm-root] .checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+[data-fm-root] .checkbox:focus {
+    outline: 2px solid var(--fm-primary);
+    outline-offset: 2px;
+}
+
+[data-fm-root] .fileName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[data-fm-root] .sizeCell {
+    padding: 6px 12px;
+    color: var(--fm-text-secondary);
+    vertical-align: middle;
+    white-space: nowrap;
+    width: 100px;
+}
+
+[data-fm-root] .typeCell {
+    padding: 6px 12px;
+    color: var(--fm-text-secondary);
+    vertical-align: middle;
+    text-transform: uppercase;
+    font-size: var(--fm-font-size-xs);
+    width: 80px;
+}
+
+[data-fm-root] .dateCell {
+    padding: 6px 12px;
+    color: var(--fm-text-secondary);
+    vertical-align: middle;
+    white-space: nowrap;
+    width: 120px;
+}
+
+[data-fm-root] .listEmpty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--fm-text-muted);
+    gap: 12px;
+}
+
+[data-fm-root] .emptyText {
+    font-size: var(--fm-font-size-base);
+    font-weight: 500;
+}
+
+[data-fm-root] .emptySubtext {
+    font-size: var(--fm-font-size-sm);
+}
