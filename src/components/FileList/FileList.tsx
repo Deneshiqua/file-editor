@@ -12,22 +12,28 @@ const styles = Object.keys(stylesModule).length > 0
     : {
         sortIndicator: 'sortIndicator',
         listEmpty: 'listEmpty',
-        emptyText: 'emptyText',
-        emptySubtext: 'emptySubtext',
-        table: 'table',
-        thead: 'thead',
-        headerRow: 'headerRow',
+        listEmptyText: 'listEmptyText',
+        listEmptySubtext: 'listEmptySubtext',
+        fileListTable: 'fileListTable',
+        fileListHeader: 'fileListHeader',
+        fileListHeaderRow: 'fileListHeaderRow',
+        fileListBody: 'fileListBody',
+        fileListRow: 'fileListRow',
+        fileListRowSelected: 'fileListRowSelected',
         checkbox: 'checkbox',
+        checkboxHeaderCell: 'checkboxHeaderCell',
         headerCell: 'headerCell',
         headerCellActive: 'headerCellActive',
-        row: 'row',
-        rowSelected: 'rowSelected',
-        cell: 'cell',
-        nameCell: 'nameCell',
-        fileName: 'fileName',
-        sizeCell: 'sizeCell',
-        typeCell: 'typeCell',
-        dateCell: 'dateCell',
+        listCheckboxCell: 'listCheckboxCell',
+        listNameCell: 'listNameCell',
+        listFileName: 'listFileName',
+        listSizeCell: 'listSizeCell',
+        listTypeCell: 'listTypeCell',
+        listDateCell: 'listDateCell',
+        listNameHeaderCell: 'listNameHeaderCell',
+        listSizeHeaderCell: 'listSizeHeaderCell',
+        listTypeHeaderCell: 'listTypeHeaderCell',
+        listDateHeaderCell: 'listDateHeaderCell',
     };
 
 interface FileListProps {
@@ -80,12 +86,21 @@ export function FileList({ files, onContextMenu }: FileListProps) {
         );
     };
 
+    const handleBackgroundContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        onContextMenu(e);
+    };
+
     if (files.length === 0) {
         return (
-            <div className={styles.listEmpty} onClick={() => clearSelection()}>
+            <div
+                className={styles.listEmpty}
+                onClick={() => clearSelection()}
+                onContextMenu={handleBackgroundContextMenu}
+            >
                 <EmptyIcon />
-                <span className={styles.emptyText}>This folder is empty</span>
-                <span className={styles.emptySubtext}>
+                <span className={styles.listEmptyText}>This folder is empty</span>
+                <span className={styles.listEmptySubtext}>
                     Drop files here or use the Upload button
                 </span>
             </div>
@@ -93,10 +108,10 @@ export function FileList({ files, onContextMenu }: FileListProps) {
     }
 
     return (
-        <table className={styles.table}>
-            <thead className={styles.thead}>
-                <tr className={styles.headerRow}>
-                    <th style={{ width: 40, padding: '8px 12px' }}>
+        <div className={styles.fileListTable} role="table">
+            <div className={styles.fileListHeader} role="rowgroup">
+                <div className={styles.fileListHeaderRow} role="row">
+                    <div className={styles.checkboxHeaderCell} role="columnheader">
                         <input
                             type="checkbox"
                             className={styles.checkbox}
@@ -111,9 +126,10 @@ export function FileList({ files, onContextMenu }: FileListProps) {
                                 }
                             }}
                         />
-                    </th>
-                    <th>
+                    </div>
+                    <div className={styles.listNameHeaderCell} role="columnheader">
                         <button
+                            type="button"
                             className={
                                 state.sortConfig.field === 'name'
                                     ? styles.headerCellActive
@@ -123,9 +139,10 @@ export function FileList({ files, onContextMenu }: FileListProps) {
                         >
                             Name {getSortIndicator('name')}
                         </button>
-                    </th>
-                    <th>
+                    </div>
+                    <div className={styles.listSizeHeaderCell} role="columnheader">
                         <button
+                            type="button"
                             className={
                                 state.sortConfig.field === 'size'
                                     ? styles.headerCellActive
@@ -135,9 +152,10 @@ export function FileList({ files, onContextMenu }: FileListProps) {
                         >
                             Size {getSortIndicator('size')}
                         </button>
-                    </th>
-                    <th>
+                    </div>
+                    <div className={styles.listTypeHeaderCell} role="columnheader">
                         <button
+                            type="button"
                             className={
                                 state.sortConfig.field === 'type'
                                     ? styles.headerCellActive
@@ -147,9 +165,10 @@ export function FileList({ files, onContextMenu }: FileListProps) {
                         >
                             Type {getSortIndicator('type')}
                         </button>
-                    </th>
-                    <th>
+                    </div>
+                    <div className={styles.listDateHeaderCell} role="columnheader">
                         <button
+                            type="button"
                             className={
                                 state.sortConfig.field === 'modifiedAt'
                                     ? styles.headerCellActive
@@ -159,17 +178,21 @@ export function FileList({ files, onContextMenu }: FileListProps) {
                         >
                             Modified {getSortIndicator('modifiedAt')}
                         </button>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
+                    </div>
+                </div>
+            </div>
+            <div className={styles.fileListBody} role="rowgroup">
                 {files.map((item) => {
                     const isSelected = state.selectedItems.some((s) => s.id === item.id);
+                    const rowClassName = isSelected
+                        ? `${styles.fileListRow} ${styles.fileListRowSelected}`
+                        : styles.fileListRow;
 
                     return (
-                        <tr
+                        <div
                             key={item.id}
-                            className={isSelected ? styles.rowSelected : styles.row}
+                            className={rowClassName}
+                            role="row"
                             onClick={(e) => handleClick(e, item)}
                             onDoubleClick={() => handleDoubleClick(item)}
                             onContextMenu={(e) => {
@@ -178,7 +201,7 @@ export function FileList({ files, onContextMenu }: FileListProps) {
                                 onContextMenu(e, item);
                             }}
                         >
-                            <td className={styles.cell}>
+                            <div className={styles.listCheckboxCell} role="cell">
                                 <input
                                     type="checkbox"
                                     className={styles.checkbox}
@@ -186,22 +209,24 @@ export function FileList({ files, onContextMenu }: FileListProps) {
                                     onChange={() => toggleSelect(item)}
                                     onClick={(e) => e.stopPropagation()}
                                 />
-                            </td>
-                            <td className={styles.nameCell}>
+                            </div>
+                            <div className={styles.listNameCell} role="cell">
                                 {getFileIcon(item, 18)}
-                                <span className={styles.fileName}>{item.name}</span>
-                            </td>
-                            <td className={styles.sizeCell}>
+                                <span className={styles.listFileName}>{item.name}</span>
+                            </div>
+                            <div className={styles.listSizeCell} role="cell">
                                 {item.isDirectory ? '—' : formatFileSize(item.size)}
-                            </td>
-                            <td className={styles.typeCell}>
+                            </div>
+                            <div className={styles.listTypeCell} role="cell">
                                 {item.isDirectory ? 'Folder' : getFileExtension(item.name).toUpperCase() || '—'}
-                            </td>
-                            <td className={styles.dateCell}>{formatDate(item.modifiedAt)}</td>
-                        </tr>
+                            </div>
+                            <div className={styles.listDateCell} role="cell">
+                                {formatDate(item.modifiedAt)}
+                            </div>
+                        </div>
                     );
                 })}
-            </tbody>
-        </table>
+            </div>
+        </div>
     );
 }

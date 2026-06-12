@@ -2,7 +2,7 @@
 // REST API Adapter - Default Backend Adapter
 // ============================================
 
-import type { FileManagerAdapter, FileItem, UploadProgress } from '@/types';
+import type { DeleteItemTarget, FileManagerAdapter, FileItem, UploadProgress } from '@/types';
 
 export class RestAdapter implements FileManagerAdapter {
     private baseUrl: string;
@@ -29,11 +29,11 @@ export class RestAdapter implements FileManagerAdapter {
         return res.json();
     }
 
-    async deleteItems(paths: string[]): Promise<void> {
+    async deleteItems(targets: DeleteItemTarget[]): Promise<void> {
         const res = await fetch(this.baseUrl, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paths }),
+            body: JSON.stringify({ paths: targets.map((t) => t.path) }),
         });
         if (!res.ok) throw new Error('Failed to delete items');
     }

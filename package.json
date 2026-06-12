@@ -1,6 +1,6 @@
 {
   "name": "modern-fm-pro",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": false,
   "homepage": "https://github.com/deneshiqua/modern-fm-pro",
   "repository": {
@@ -35,7 +35,8 @@
     "**/*.css"
   ],
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3001",
+    "dev:webpack": "next dev --webpack --port 3001",
     "build": "next build",
     "build:package": "tsup",
     "pack:check": "npm pack --dry-run",

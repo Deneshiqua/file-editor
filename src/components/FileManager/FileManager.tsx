@@ -90,22 +90,29 @@ function FileManagerInner() {
             }
 
             if (e.key === 'Delete' && state.selectedItems.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 openModal('delete');
+                return;
             }
 
             if (e.key === 'F2' && state.selectedItems.length === 1) {
                 e.preventDefault();
+                e.stopPropagation();
                 openModal('rename');
+                return;
             }
 
             if (e.key === 'F5') {
                 e.preventDefault();
+                e.stopPropagation();
                 refreshFiles();
             }
         };
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
     }, [state.selectedItems, selectAll, copyItems, cutItems, pasteItems, openModal, refreshFiles, deleteItems]);
 
     // Sort and filter files
@@ -158,9 +165,9 @@ function FileManagerInner() {
                     <div
                         className={styles.contentArea}
                         onContextMenu={(e) => {
-                            if (e.target === e.currentTarget) {
-                                handleContextMenu(e);
-                            }
+                            if (e.target !== e.currentTarget) return;
+                            e.preventDefault();
+                            handleContextMenu(e);
                         }}
                     >
                         {state.viewMode === 'grid' ? (

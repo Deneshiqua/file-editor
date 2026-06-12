@@ -2,6 +2,7 @@
 
 import type { ContextMenuPosition, FileItem } from '@/types';
 import {
+    CheckIcon,
     CopyIcon,
     CutIcon,
     DeleteIcon,
@@ -12,7 +13,8 @@ import {
     RenameIcon,
     UploadIcon,
 } from '@/components/Icons/Icons';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { isPreviewable } from '@/utils/helpers';
 import stylesModule from './ContextMenu.module.css';
@@ -21,7 +23,8 @@ import { useFileManager } from '@/context/FileManagerContext';
 const styles = Object.keys(stylesModule).length > 0
     ? stylesModule
     : {
-        overlay: 'overlay',
+        contextMenuPortal: 'contextMenuPortal',
+        contextMenuBackdrop: 'contextMenuBackdrop',
         menu: 'menu',
         menuItem: 'menuItem',
         menuItemDanger: 'menuItemDanger',
@@ -40,6 +43,7 @@ interface ContextMenuProps {
 export function ContextMenu({ position, item, onClose }: ContextMenuProps) {
     const menuRef = useRef<HTMLDivElement>(null);
     const {
+        config,
         state,
         navigateTo,
         openPreview,
@@ -53,6 +57,31 @@ export function ContextMenu({ position, item, onClose }: ContextMenuProps) {
     } = useFileManager();
 
     const hasClipboard = state.clipboard.items.length > 0;
+    const isSelectionMode = config.selectionMode === true;
+    const theme = config.theme || 'dark';
+    const selectCount =
+        item && state.selectedItems.some((selected) => selected.id === item.id)
+            ? state.selectedItems.length
+            : item
+              ? 1
+              : state.selectedItems.length;
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        const handlePointerDown = (event: PointerEvent) => {
+            const target = event.target;
+            if (!(target instanceof Node)) return;
+            if (menuRef.current?.contains(target)) return;
+            onClose();
+        };
+
+        document.addEventListener('pointerdown', handlePointerDown, true);
+        return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+    }, [onClose]);
 
     // Adjust position to stay within viewport
     useEffect(() => {
@@ -75,9 +104,36 @@ export function ContextMenu({ position, item, onClose }: ContextMenuProps) {
         onClose();
     };
 
-    return (
-        <>
-            <div className={styles.overlay} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }} />
+    const selectAndDelete = () => {
+        if (!item) return;
+        selectItem(item);
+        onClose();
+        openModal('delete');
+    };
+
+    const handleSelect = () => {
+        if (!config.onFileSelect) return;
+
+        const items =
+            item && state.selectedItems.some((selected) => selected.id === item.id)
+                ? state.selectedItems
+                : item
+                  ? [item]
+                  : state.selectedItems;
+
+        if (items.length > 0) {
+            config.onFileSelect(items);
+        }
+    };
+
+    const menu = (
+        <div
+            data-fm-root="true"
+            data-fm-context-menu="true"
+            data-fm-theme={theme}
+            className={styles.contextMenuPortal}
+        >
+            <div className={styles.contextMenuBackdrop} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }} />
             <div
                 ref={menuRef}
                 className={styles.menu}
@@ -93,6 +149,17 @@ export function ContextMenu({ position, item, onClose }: ContextMenuProps) {
                             >
                                 <span className={styles.menuItemIcon}><FolderOpenIcon size={16} /></span>
                                 <span className={styles.menuItemLabel}>Open</span>
+                            </button>
+                        )}
+                        {!item.isDirectory && isSelectionMode && (
+                            <button
+                                className={styles.menuItem}
+                                onClick={() => handleAction(handleSelect)}
+                            >
+                                <span className={styles.menuItemIcon}><CheckIcon size={16} /></span>
+                                <span className={styles.menuItemLabel}>
+                                    Select ({selectCount})
+                                </span>
                             </button>
                         )}
                         {!item.isDirectory && isPreviewable(item.mimeType, item.name) && (
@@ -197,14 +264,12 @@ export function ContextMenu({ position, item, onClose }: ContextMenuProps) {
                     </>
                 )}
             </div>
-        </>
+        </div>
     );
 
-    function selectAndDelete() {
-        // First select the item, then open delete modal
-        if (!item) return;
-        selectItem(item);
-        onClose();
-        openModal('delete');
+    if (!mounted) {
+        return null;
     }
+
+    return createPortal(menu, document.body);
 }

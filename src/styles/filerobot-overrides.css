@@ -96,20 +96,51 @@ body:has([data-fm-root][data-fm-theme='dark'] [data-fm-filerobot-editor='true'])
     color: #94a3b8 !important;
 }
 
-body:has([data-fm-root] [data-fm-filerobot-editor='true']) [class*='SfxModal-Wrapper']:has(.FIE_save-modal) {
-    z-index: 12040 !important;
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) [class*='SfxModal-Wrapper'] {
+    z-index: 25000 !important;
+    pointer-events: none !important;
 }
 
-body:has([data-fm-root] [data-fm-filerobot-editor='true']) [class*='SfxModal-Wrapper']:has(.FIE_save-modal) [class*='SfxModal-overlay'] {
-    z-index: 12045 !important;
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) [class*='SfxModal-Wrapper'] [class*='SfxModal-overlay'] {
+    z-index: 25001 !important;
+    pointer-events: none !important;
 }
 
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) [class*='SfxModal-Wrapper'] [data-testid='FIE-modal-container'],
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) [class*='SfxModal-Modal'],
 body:has([data-fm-root] [data-fm-filerobot-editor='true']) .FIE_save-modal {
-    z-index: 12050 !important;
+    z-index: 25002 !important;
     pointer-events: auto !important;
 }
 
-body:has([data-fm-root] [data-fm-filerobot-editor='true']) [class*='SfxModal-Wrapper']:has(.FIE_save-modal) [data-testid='FIE-modal-container'] {
-    z-index: 12050 !important;
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) .FIE_save-modal input,
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) .FIE_save-modal textarea,
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) .FIE_save-modal button,
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) .FIE_save-modal [class*='SfxInput'],
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) .FIE_save-modal [class*='SfxSelect'],
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) [data-testid='FIE-modal-container'] input,
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) [data-testid='FIE-modal-container'] button,
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) [data-testid='FIE-modal-container'] [class*='SfxInput'],
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) [data-testid='FIE-modal-container'] [class*='SfxSelect'] {
     pointer-events: auto !important;
+}
+
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) #SfxPopper,
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) .FIE_annotation-option-popup,
+body:has([data-fm-root] [data-fm-filerobot-editor='true']) .FIE_feedback-robot {
+    z-index: 25003 !important;
+    pointer-events: auto !important;
+}
+
+/* Embedded editor: trim canvas padding only; keep Filerobot height chain intact */
+[data-fm-root] [data-fm-filerobot-editor='true'] .FIE_root {
+    height: 100% !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+}
+
+[data-fm-root] [data-fm-filerobot-editor='true'] .FIE_canvas-container {
+    padding: 0 !important;
 }

@@ -186,19 +186,46 @@ body:has([data-fm-root][data-fm-theme=dark] [data-fm-filerobot-editor=true]) .FI
 body:has([data-fm-root][data-fm-theme=dark] [data-fm-filerobot-editor=true]) .FIE_save-modal .SfxInput-Base::placeholder {
   color: #94a3b8 !important;
 }
-body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrapper]:has(.FIE_save-modal) {
-  z-index: 12040 !important;
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrapper] {
+  z-index: 25000 !important;
+  pointer-events: none !important;
 }
-body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrapper]:has(.FIE_save-modal) [class*=SfxModal-overlay] {
-  z-index: 12045 !important;
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrapper] [class*=SfxModal-overlay] {
+  z-index: 25001 !important;
+  pointer-events: none !important;
 }
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrapper] [data-testid=FIE-modal-container],
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Modal],
 body:has([data-fm-root] [data-fm-filerobot-editor=true]) .FIE_save-modal {
-  z-index: 12050 !important;
+  z-index: 25002 !important;
   pointer-events: auto !important;
 }
-body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrapper]:has(.FIE_save-modal) [data-testid=FIE-modal-container] {
-  z-index: 12050 !important;
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) .FIE_save-modal input,
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) .FIE_save-modal textarea,
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) .FIE_save-modal button,
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) .FIE_save-modal [class*=SfxInput],
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) .FIE_save-modal [class*=SfxSelect],
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) [data-testid=FIE-modal-container] input,
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) [data-testid=FIE-modal-container] button,
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) [data-testid=FIE-modal-container] [class*=SfxInput],
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) [data-testid=FIE-modal-container] [class*=SfxSelect] {
   pointer-events: auto !important;
+}
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) #SfxPopper,
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) .FIE_annotation-option-popup,
+body:has([data-fm-root] [data-fm-filerobot-editor=true]) .FIE_feedback-robot {
+  z-index: 25003 !important;
+  pointer-events: auto !important;
+}
+[data-fm-root] [data-fm-filerobot-editor=true] .FIE_root {
+  height: 100% !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  border-radius: 0 !important;
+}
+[data-fm-root] [data-fm-filerobot-editor=true] .FIE_canvas-container {
+  padding: 0 !important;
 }
 
 /* src/components/StatusBar/StatusBar.module.css */
@@ -314,17 +341,27 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
 }
 
 /* src/components/ContextMenu/ContextMenu.module.css */
-[data-fm-root] .overlay {
+[data-fm-root].contextMenuPortal {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  pointer-events: none;
+}
+[data-fm-root].contextMenuPortal > .contextMenuBackdrop,
+[data-fm-root].contextMenuPortal > .menu {
+  pointer-events: auto;
+}
+[data-fm-root] .contextMenuBackdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1000;
+  z-index: 20000;
 }
 [data-fm-root] .menu {
   position: fixed;
-  z-index: 1001;
+  z-index: 20001;
   min-width: 200px;
   background: var(--fm-menu-bg);
   border: 1px solid var(--fm-border);
@@ -470,12 +507,12 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   overflow: hidden;
   width: 700px;
 }
-[data-fm-root] .modalEditor {
+[data-fm-root] .modalLarge.modalEditor {
   width: min(1200px, 94vw);
-  height: min(88vh, 900px);
   max-width: 94vw;
-  max-height: 88vh;
-  overflow: visible;
+  height: min(88vh, 900px);
+  max-height: 92vh;
+  overflow: hidden;
 }
 [data-fm-root] .modalHeader {
   display: flex;
@@ -510,10 +547,6 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   padding: 20px;
   overflow-y: auto;
   flex: 1;
-}
-[data-fm-root] .modalBodyEditor {
-  padding: 0;
-  overflow: visible;
 }
 [data-fm-root] .modalFooter {
   display: flex;
@@ -615,6 +648,32 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   border-color: var(--fm-primary);
   box-shadow: 0 0 0 3px var(--fm-primary-light);
 }
+[data-fm-root] .saveAsInputRow {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  margin-bottom: 16px;
+}
+[data-fm-root] .saveAsInputRow .input {
+  flex: 1;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+[data-fm-root] .saveAsExtension {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--fm-border);
+  border-left: none;
+  border-radius: 0 var(--fm-radius-sm) var(--fm-radius-sm) 0;
+  background: var(--fm-bg);
+  color: var(--fm-text-secondary);
+  font-size: var(--fm-font-size-base);
+  font-family: var(--fm-font);
+  white-space: nowrap;
+  user-select: none;
+}
 [data-fm-root] .dropZone {
   border: 2px dashed var(--fm-border);
   border-radius: var(--fm-radius);
@@ -688,6 +747,14 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   font-size: var(--fm-font-size-xs);
   color: var(--fm-text-muted);
 }
+[data-fm-root] .fileQueueError {
+  font-size: var(--fm-font-size-xs);
+  color: var(--fm-danger, #f87171);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 [data-fm-root] .progressBar {
   width: 100%;
   height: 4px;
@@ -746,9 +813,18 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
 [data-fm-root] .previewContainerEditor {
   align-items: stretch;
   gap: 0;
-  min-height: 100%;
+  min-height: 0;
   height: 100%;
-  overflow: visible;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+[data-fm-root] .filerobotEditorHost {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 [data-fm-root] .previewImage {
   max-width: 100%;
@@ -831,6 +907,20 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
     width: 95vw;
   }
 }
+[data-fm-root] .modalBody.modalBodyEditor {
+  padding: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+[data-fm-root] .previewContainer.previewContainerEditor {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  gap: 0;
+  align-items: stretch;
+  overflow: hidden;
+}
 
 /* src/components/FileGrid/FileGrid.module.css */
 [data-fm-root] .grid {
@@ -890,7 +980,7 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   border-radius: var(--fm-radius-sm);
   border: 1px solid var(--fm-border);
 }
-[data-fm-root] .fileName {
+[data-fm-root] .gridFileName {
   font-size: var(--fm-font-size-sm);
   color: var(--fm-text);
   text-align: center;
@@ -912,6 +1002,7 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 100%;
   padding: 60px 20px;
   color: var(--fm-text-muted);
   gap: 12px;
@@ -952,21 +1043,70 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
 }
 
 /* src/components/FileList/FileList.module.css */
-[data-fm-root] .table {
+[data-fm-root] .fileListTable {
   width: 100%;
-  border-collapse: collapse;
   font-size: var(--fm-font-size-sm);
+  border: 1px solid var(--fm-border);
+  display: flex;
+  flex-direction: column;
 }
-[data-fm-root] .thead {
+[data-fm-root] .fileListHeader {
   position: sticky;
   top: 0;
   z-index: 1;
-}
-[data-fm-root] .headerRow {
   background: var(--fm-bg-secondary);
   border-bottom: 1px solid var(--fm-border);
 }
+[data-fm-root] .fileListHeaderRow,
+[data-fm-root] .fileListRow,
+[data-fm-root] .fileListRowSelected {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 100px 80px 120px;
+  align-items: center;
+}
+[data-fm-root] .fileListHeaderRow > *,
+[data-fm-root] .fileListRow > *,
+[data-fm-root] .fileListRowSelected > * {
+  border-right: 1px solid var(--fm-border);
+  min-width: 0;
+}
+[data-fm-root] .fileListHeaderRow > *:last-child,
+[data-fm-root] .fileListRow > *:last-child,
+[data-fm-root] .fileListRowSelected > *:last-child {
+  border-right: none;
+}
+[data-fm-root] .fileListRow,
+[data-fm-root] .fileListRowSelected {
+  border-bottom: 1px solid var(--fm-border-light);
+  cursor: pointer;
+  transition: background var(--fm-transition);
+}
+[data-fm-root] .fileListRow:hover {
+  background: var(--fm-hover);
+}
+[data-fm-root] .fileListRowSelected {
+  background: var(--fm-selected);
+}
+[data-fm-root] .fileListRowSelected:hover {
+  background: var(--fm-active);
+}
+[data-fm-root] .checkboxHeaderCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  box-sizing: border-box;
+}
+[data-fm-root] .listNameHeaderCell,
+[data-fm-root] .listSizeHeaderCell,
+[data-fm-root] .listTypeHeaderCell,
+[data-fm-root] .listDateHeaderCell {
+  padding: 0;
+  overflow: hidden;
+}
 [data-fm-root] .headerCell {
+  width: 100%;
+  box-sizing: border-box;
   padding: 8px 12px;
   text-align: left;
   font-weight: 600;
@@ -986,6 +1126,8 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   color: var(--fm-text);
 }
 [data-fm-root] .headerCellActive {
+  width: 100%;
+  box-sizing: border-box;
   padding: 8px 12px;
   text-align: left;
   font-weight: 600;
@@ -1005,35 +1147,20 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   margin-left: 4px;
   font-size: 10px;
 }
-[data-fm-root] .row {
-  border-bottom: 1px solid var(--fm-border-light);
-  cursor: pointer;
-  transition: background var(--fm-transition);
-}
-[data-fm-root] .row:hover {
-  background: var(--fm-hover);
-}
-[data-fm-root] .rowSelected {
-  border-bottom: 1px solid var(--fm-border-light);
-  cursor: pointer;
-  transition: background var(--fm-transition);
-  background: var(--fm-selected);
-}
-[data-fm-root] .rowSelected:hover {
-  background: var(--fm-active);
-}
-[data-fm-root] .cell {
-  padding: 6px 12px;
+[data-fm-root] .listCheckboxCell {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
   color: var(--fm-text);
-  vertical-align: middle;
 }
-[data-fm-root] .nameCell {
-  padding: 6px 12px;
+[data-fm-root] .listNameCell {
+  padding: 8px 12px;
   color: var(--fm-text);
-  vertical-align: middle;
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  overflow: hidden;
 }
 [data-fm-root] .checkbox {
   width: 16px;
@@ -1071,47 +1198,46 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   outline: 2px solid var(--fm-primary);
   outline-offset: 2px;
 }
-[data-fm-root] .fileName {
+[data-fm-root] .listFileName {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
-[data-fm-root] .sizeCell {
-  padding: 6px 12px;
+[data-fm-root] .listSizeCell {
+  padding: 8px 12px;
   color: var(--fm-text-secondary);
-  vertical-align: middle;
   white-space: nowrap;
-  width: 100px;
 }
-[data-fm-root] .typeCell {
-  padding: 6px 12px;
+[data-fm-root] .listTypeCell {
+  padding: 8px 12px;
   color: var(--fm-text-secondary);
-  vertical-align: middle;
   text-transform: uppercase;
   font-size: var(--fm-font-size-xs);
-  width: 80px;
-}
-[data-fm-root] .dateCell {
-  padding: 6px 12px;
-  color: var(--fm-text-secondary);
-  vertical-align: middle;
   white-space: nowrap;
-  width: 120px;
+}
+[data-fm-root] .listDateCell {
+  padding: 8px 12px;
+  color: var(--fm-text-secondary);
+  white-space: nowrap;
 }
 [data-fm-root] .listEmpty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 100%;
   padding: 60px 20px;
   color: var(--fm-text-muted);
   gap: 12px;
 }
-[data-fm-root] .emptyText {
+[data-fm-root] .listEmptyText {
   font-size: var(--fm-font-size-base);
   font-weight: 500;
 }
-[data-fm-root] .emptySubtext {
+[data-fm-root] .listEmptySubtext {
   font-size: var(--fm-font-size-sm);
 }
 
@@ -1397,6 +1523,25 @@ body:has([data-fm-root] [data-fm-filerobot-editor=true]) [class*=SfxModal-Wrappe
   transition: all var(--fm-transition);
   background: var(--fm-primary-light);
   color: var(--fm-primary);
+}
+[data-fm-root] .toolbarCloseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  margin-left: 6px;
+  border: 1px solid var(--fm-border);
+  border-radius: var(--fm-radius-sm);
+  background: transparent;
+  color: var(--fm-text-muted);
+  cursor: pointer;
+  transition: all var(--fm-transition);
+  flex-shrink: 0;
+}
+[data-fm-root] .toolbarCloseBtn:hover {
+  color: var(--fm-text);
+  background: var(--fm-hover);
 }
 [data-fm-root] .categoryFilter {
   display: flex;

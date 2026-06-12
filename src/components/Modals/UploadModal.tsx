@@ -1,7 +1,7 @@
 'use client';
 
 import { CloseIcon, UploadIcon } from '@/components/Icons/Icons';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { fileMatchesCategory, formatFileSize, getAcceptForCategory } from '@/utils/helpers';
 
 import { getFileIcon } from '@/components/Icons/Icons';
@@ -12,12 +12,31 @@ import { useFileManager } from '@/context/FileManagerContext';
 const styles = Object.keys(stylesModule).length > 0 ? stylesModule : modalClassNames;
 
 export function UploadModal() {
-    const { state, config, uploadFiles, closeModal } = useFileManager();
+    const { state, config, uploadFiles, closeModal, clearUploadProgress } = useFileManager();
     const [files, setFiles] = useState<File[]>([]);
     const [isDragOver, setIsDragOver] = useState(false);
     const [rejectedFiles, setRejectedFiles] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const isUploading = state.uploadProgress.some((p) => p.status === 'uploading');
+    const hasUploadError = state.uploadProgress.some((p) => p.status === 'error');
+
+    useEffect(() => {
+        return () => {
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        };
+    }, []);
+
+    const handleClose = () => {
+        setFiles([]);
+        setRejectedFiles([]);
+        setIsDragOver(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+        closeModal();
+    };
 
     const category = config.initialCategory || 'all';
     const acceptAttribute = getAcceptForCategory(category);
@@ -49,12 +68,14 @@ export function UploadModal() {
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         setIsDragOver(false);
+        clearUploadProgress();
         const droppedFiles = Array.from(e.dataTransfer.files);
         const filteredFiles = filterFilesByCategory(droppedFiles);
         setFiles((prev) => [...prev, ...filteredFiles]);
-    }, [hasRestriction, category]);
+    }, [hasRestriction, category, clearUploadProgress]);
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        clearUploadProgress();
         if (e.target.files) {
             const selectedFiles = Array.from(e.target.files);
             const filteredFiles = filterFilesByCategory(selectedFiles);
@@ -67,17 +88,20 @@ export function UploadModal() {
     };
 
     const handleUpload = async () => {
-        if (files.length === 0) return;
+        if (files.length === 0 || hasUploadError) return;
         await uploadFiles(files);
         setFiles([]);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     return (
-        <div className={styles.overlay} onClick={closeModal}>
+        <div className={styles.overlay} onClick={handleClose}>
             <div className={styles.modalLarge} onClick={(e) => e.stopPropagation()}>
                 <div className={styles.modalHeader}>
                     <span className={styles.modalTitle}>Upload Files</span>
-                    <button className={styles.closeBtn} onClick={closeModal}>
+                    <button className={styles.closeBtn} onClick={handleClose}>
                         <CloseIcon size={18} />
                     </button>
                 </div>
@@ -144,6 +168,9 @@ export function UploadModal() {
                                         <div className={styles.fileQueueInfo}>
                                             <div className={styles.fileQueueName}>{p.file.name}</div>
                                             <div className={styles.fileQueueSize}>{formatFileSize(p.file.size)}</div>
+                                            {p.status === 'error' && p.error && (
+                                                <div className={styles.fileQueueError}>{p.error}</div>
+                                            )}
                                             <div className={styles.progressBar}>
                                                 <div
                                                     className={
@@ -160,6 +187,15 @@ export function UploadModal() {
                                         <span className={styles.statusIcon}>
                                             {p.status === 'success' ? '✓' : p.status === 'error' ? '✕' : ''}
                                         </span>
+                                        {p.status === 'error' && (
+                                            <button
+                                                className={styles.fileQueueRemove}
+                                                onClick={clearUploadProgress}
+                                                title="Dismiss error"
+                                            >
+                                                <CloseIcon size={14} />
+                                            </button>
+                                        )}
                                     </div>
                                 ))
                                 : files.map((file, idx) => (
@@ -182,13 +218,13 @@ export function UploadModal() {
                 </div>
 
                 <div className={styles.modalFooter}>
-                    <button className={styles.btn} onClick={closeModal}>
+                    <button className={styles.btn} onClick={handleClose}>
                         Cancel
                     </button>
                     <button
                         className={styles.btnPrimary}
                         onClick={handleUpload}
-                        disabled={files.length === 0 || isUploading}
+                        disabled={files.length === 0 || isUploading || hasUploadError}
                     >
                         <UploadIcon size={16} />
                         {isUploading ? 'Uploading...' : `Upload ${files.length > 0 ? `(${files.length})` : ''}`}

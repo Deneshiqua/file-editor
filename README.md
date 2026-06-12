@@ -2,6 +2,36 @@
 
 Modern File Manager Pro is a Next.js file manager component with preview, upload, download, rename, move, copy, text editing, image editing, grid and list views, and pluggable storage adapters.
 
+## What's New in 0.1.6
+
+- **List view overhaul**: CSS Grid columns (name, size, type, modified), default sort by modified descending, unique class names to prevent CSS collisions in bundled `dist/index.css`
+- **Supabase storage fixes**: Path normalization for nested folders, recursive folder delete (including `.folderkeep` markers), image-only bucket support for empty folders (`image/svg+xml`), filename sanitization on upload
+- **Save & overwrite**: `saveFileContent` uses remove-then-upload for RLS-friendly overwrites; optional `supabase` client in `SupabaseAdapterConfig` for session-aware auth
+- **Save As UI**: Simplified modal — filename only (extension locked), Cancel left / Save As right, no image preview in Save As mode
+- **Image editor (Filerobot)**: Portaled modals (Save, Warning) receive correct `pointer-events` and z-index; duplicate preview header hidden in edit mode; canvas padding trimmed
+- **Upload modal**: Progress state resets when the modal closes or reopens after errors
+- **Context menu**: Portaled to `document.body` with backdrop; works in nested Radix/shadcn dialogs
+- **Toolbar**: Close (`X`) button added
+- **Keyboard & empty areas**: Delete key handled in capture phase (avoids host app conflicts); right-click paste on empty folder views
+- **Helpers**: `normalizeManagerPath`, `toStoragePath`, `sanitizeStorageFileName`, `getFileBaseName`
+
+### Host app integration notes
+
+When embedding FileManager inside a **Radix Dialog** (`modal={true}`), Filerobot portaled modals may not receive clicks. Use `modal={false}` with a manual backdrop on the host dialog (same pattern as TinyMCE / Slider Pro in shopon360).
+
+For Supabase image overwrite from the browser, ensure storage RLS includes **UPDATE** (or rely on remove+upload with INSERT/DELETE policies).
+
+```tsx
+import { createBrowserClient } from '@supabase/ssr';
+
+const adapter = new SupabaseAdapter({
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  bucketName: 'media',
+  supabase: createBrowserClient(url, anonKey), // optional: reuse authenticated session
+});
+```
+
 ## What's New in 0.1.5
 
 - **Category Filtering**: Built-in file type filtering (All, Documents, Images, Media, Other)
@@ -31,13 +61,13 @@ Modern File Manager Pro is a Next.js file manager component with preview, upload
 ## Installation
 
 ```bash
-npm install modern-fm-pro@0.1.5
+npm install modern-fm-pro@0.1.6
 ```
 
 If you want Supabase support:
 
 ```bash
-npm install modern-fm-pro@0.1.5 @supabase/supabase-js
+npm install modern-fm-pro@0.1.6 @supabase/supabase-js
 ```
 
 ## Quick Start

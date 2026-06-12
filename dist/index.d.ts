@@ -1,5 +1,5 @@
-import * as react_jsx_runtime from 'react/jsx-runtime';
 import React$1 from 'react';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 type ViewMode = 'grid' | 'list';
 type SortField = 'name' | 'size' | 'type' | 'modifiedAt';
@@ -17,6 +17,10 @@ interface FileItem {
     thumbnailUrl?: string;
     createdAt: string;
     modifiedAt: string;
+}
+interface DeleteItemTarget {
+    path: string;
+    isDirectory: boolean;
 }
 interface SortConfig {
     field: SortField;
@@ -64,6 +68,7 @@ interface FileManagerConfig {
     selectionMode?: boolean;
     multiSelect?: boolean;
     onFileSelect?: (files: FileItem[]) => void;
+    onClose?: () => void;
     hideSystemFiles?: boolean;
     supabase?: {
         url: string;
@@ -74,7 +79,7 @@ interface FileManagerConfig {
 interface FileManagerAdapter {
     listFiles(path: string): Promise<FileItem[]>;
     createFolder(path: string, name: string): Promise<FileItem>;
-    deleteItems(paths: string[]): Promise<void>;
+    deleteItems(targets: DeleteItemTarget[]): Promise<void>;
     renameItem(path: string, newName: string): Promise<FileItem>;
     moveItems(sourcePaths: string[], targetPath: string): Promise<void>;
     copyItems(sourcePaths: string[], targetPath: string): Promise<void>;
@@ -172,7 +177,7 @@ interface FileManagerProps {
     adapter: FileManagerAdapter;
     config?: FileManagerConfig;
 }
-declare function FileManager({ adapter, config }: FileManagerProps): react_jsx_runtime.JSX.Element;
+declare function FileManager({ adapter, config }: FileManagerProps): React$1.JSX.Element;
 
 interface FileManagerContextValue {
     state: FileManagerState;
@@ -202,6 +207,7 @@ interface FileManagerContextValue {
     setCategory: (category: FileCategory) => void;
     openModal: (modal: ModalType) => void;
     closeModal: () => void;
+    clearUploadProgress: () => void;
     openPreview: (item: FileItem) => void;
     openRename: (item: FileItem) => void;
     saveFileContent: (path: string, content: string | Blob) => Promise<FileItem>;
@@ -211,7 +217,7 @@ interface FileManagerProviderProps {
     adapter: FileManagerAdapter;
     config?: FileManagerConfig;
 }
-declare function FileManagerProvider({ children, adapter, config, }: FileManagerProviderProps): react_jsx_runtime.JSX.Element;
+declare function FileManagerProvider({ children, adapter, config, }: FileManagerProviderProps): React$1.JSX.Element;
 declare function useFileManager(): FileManagerContextValue;
 
 declare class RestAdapter implements FileManagerAdapter {
@@ -219,7 +225,7 @@ declare class RestAdapter implements FileManagerAdapter {
     constructor(baseUrl?: string);
     listFiles(path: string): Promise<FileItem[]>;
     createFolder(path: string, name: string): Promise<FileItem>;
-    deleteItems(paths: string[]): Promise<void>;
+    deleteItems(targets: DeleteItemTarget[]): Promise<void>;
     renameItem(path: string, newName: string): Promise<FileItem>;
     moveItems(sourcePaths: string[], targetPath: string): Promise<void>;
     copyItems(sourcePaths: string[], targetPath: string): Promise<void>;
@@ -235,6 +241,8 @@ interface SupabaseAdapterConfig {
     url: string;
     anonKey: string;
     bucketName: string;
+    /** Use a session-aware client (e.g. createBrowserClient) when provided */
+    supabase?: SupabaseClient;
 }
 declare class SupabaseAdapter implements FileManagerAdapter {
     private supabase;
@@ -242,7 +250,11 @@ declare class SupabaseAdapter implements FileManagerAdapter {
     constructor(config: SupabaseAdapterConfig);
     listFiles(path: string): Promise<FileItem[]>;
     createFolder(path: string, name: string): Promise<FileItem>;
-    deleteItems(paths: string[]): Promise<void>;
+    deleteItems(targets: DeleteItemTarget[]): Promise<void>;
+    private deleteFolder;
+    private collectFilePathsUnderPrefix;
+    private normalizeObjectKey;
+    private removeStorageObjects;
     renameItem(path: string, newName: string): Promise<FileItem>;
     moveItems(sourcePaths: string[], targetPath: string): Promise<void>;
     copyItems(sourcePaths: string[], targetPath: string): Promise<void>;
@@ -266,6 +278,6 @@ declare function getFileIcon(item: {
     isDirectory: boolean;
     mimeType: string;
     name: string;
-}, size?: number): react_jsx_runtime.JSX.Element;
+}, size?: number): React$1.JSX.Element;
 
 export { type ClipboardState, type ContextMenuItem, type ContextMenuPosition, type FileItem, FileManager, type FileManagerAdapter, type FileManagerConfig, FileManagerProvider, type ModalType, RestAdapter, type SortConfig, type SortField, type SortOrder, SupabaseAdapter, type SupabaseAdapterConfig, type ThemeMode, type UploadProgress, type ViewMode, filterFiles, formatDate, formatFileSize, getFileExtension, getFileIcon, isPreviewable, sortFiles, useFileManager };

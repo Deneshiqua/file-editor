@@ -4,6 +4,7 @@ import {
     ArrowBackIcon,
     ArrowForwardIcon,
     ArrowUpIcon,
+    CloseIcon,
     DeleteIcon,
     DownloadIcon,
     GridViewIcon,
@@ -36,6 +37,7 @@ const styles = Object.keys(stylesModule).length > 0
         viewToggle: 'viewToggle',
         viewToggleBtn: 'viewToggleBtn',
         viewToggleBtnActive: 'viewToggleBtnActive',
+        toolbarCloseBtn: 'toolbarCloseBtn',
         categoryFilter: 'categoryFilter',
         categoryBtn: 'categoryBtn',
         categoryBtnActive: 'categoryBtnActive',
@@ -242,6 +244,17 @@ export function Toolbar() {
                     <ListViewIcon size={16} />
                 </button>
             </div>
+            {config.onClose && (
+                <button
+                    type="button"
+                    className={styles.toolbarCloseBtn}
+                    onClick={config.onClose}
+                    title="Close"
+                    aria-label="Close"
+                >
+                    <CloseIcon size={16} />
+                </button>
+            )}
         </div>
     );
 }

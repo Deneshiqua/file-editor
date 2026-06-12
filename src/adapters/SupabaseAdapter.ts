@@ -2,13 +2,16 @@
 // Supabase Storage Adapter
 // ============================================
 
-import type { FileItem, FileManagerAdapter, UploadProgress } from '@/types';
+import type { DeleteItemTarget, FileItem, FileManagerAdapter, UploadProgress } from '@/types';
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import { normalizeManagerPath, sanitizeStorageFileName, toStoragePath } from '@/utils/helpers';
 
 export interface SupabaseAdapterConfig {
     url: string;
     anonKey: string;
     bucketName: string;
+    /** Use a session-aware client (e.g. createBrowserClient) when provided */
+    supabase?: SupabaseClient;
 }
 
 interface SupabaseFileObject {
@@ -22,22 +25,37 @@ interface SupabaseFileObject {
     updated_at?: string | null;
 }
 
+// Supabase Storage has no real folders; .folderkeep marks an empty directory.
+// Use image/svg+xml so image-only buckets (e.g. shopon360 "media") accept the upload.
+const FOLDER_PLACEHOLDER_CONTENT = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>';
+const FOLDER_PLACEHOLDER_MIME = 'image/svg+xml';
+const FOLDER_PLACEHOLDER_FILE = '.folderkeep';
+const FOLDER_MARKER_FILES = [
+    FOLDER_PLACEHOLDER_FILE,
+    '.emptyFolderPlaceholder',
+    '.gitkeep',
+];
+
+function isStorageFolder(item: SupabaseFileObject): boolean {
+    return item.id == null;
+}
+
 export class SupabaseAdapter implements FileManagerAdapter {
     private supabase: SupabaseClient;
     private bucketName: string;
 
     constructor(config: SupabaseAdapterConfig) {
-        this.supabase = createClient(config.url, config.anonKey);
+        this.supabase = config.supabase ?? createClient(config.url, config.anonKey);
         this.bucketName = config.bucketName;
     }
 
     async listFiles(path: string): Promise<FileItem[]> {
-        // Remove leading slash
-        const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+        const storagePath = toStoragePath(path);
+        const parentPath = normalizeManagerPath(path);
 
         const { data, error } = await this.supabase.storage
             .from(this.bucketName)
-            .list(normalizedPath, {
+            .list(storagePath, {
                 limit: 1000,
                 sortBy: { column: 'name', order: 'asc' },
             });
@@ -48,19 +66,21 @@ export class SupabaseAdapter implements FileManagerAdapter {
         }
 
         return (data || []).map((item: SupabaseFileObject) => {
-            const fullPath = normalizedPath ? `/${normalizedPath}/${item.name}` : `/${item.name}`;
+            const fullPath = storagePath
+                ? normalizeManagerPath(`${storagePath}/${item.name}`)
+                : normalizeManagerPath(`/${item.name}`);
 
             return {
                 id: item.id || fullPath,
                 name: item.name,
-                isDirectory: !item.metadata,
+                isDirectory: isStorageFolder(item),
                 size: item.metadata?.size || 0,
                 mimeType: item.metadata?.mimetype || 'application/octet-stream',
                 path: fullPath,
-                parentPath: `/${normalizedPath}`,
+                parentPath,
                 createdAt: item.created_at || new Date().toISOString(),
                 modifiedAt: item.updated_at || item.created_at || new Date().toISOString(),
-                thumbnailUrl: item.metadata ? this.getPreviewUrl(fullPath) : undefined,
+                thumbnailUrl: isStorageFolder(item) ? undefined : this.getPreviewUrl(fullPath),
             };
         });
     }
@@ -68,21 +88,30 @@ export class SupabaseAdapter implements FileManagerAdapter {
     async createFolder(path: string, name: string): Promise<FileItem> {
         // Supabase doesn't have explicit folder creation
         // We create a .folderkeep file to represent the folder
-        const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
-        const folderPath = normalizedPath ? `${normalizedPath}/${name}/.folderkeep` : `${name}/.folderkeep`;
+        const storagePath = toStoragePath(path);
+        const folderPath = storagePath
+            ? `${storagePath}/${name}/${FOLDER_PLACEHOLDER_FILE}`
+            : `${name}/${FOLDER_PLACEHOLDER_FILE}`;
 
         const { error } = await this.supabase.storage
             .from(this.bucketName)
-            .upload(folderPath, new Blob([''], { type: 'text/plain' }), {
-                contentType: 'text/plain',
-                upsert: false,
-            });
+            .upload(
+                folderPath,
+                new Blob([FOLDER_PLACEHOLDER_CONTENT], { type: FOLDER_PLACEHOLDER_MIME }),
+                {
+                    contentType: FOLDER_PLACEHOLDER_MIME,
+                    upsert: false,
+                }
+            );
 
         if (error) {
             throw new Error(`Failed to create folder: ${error.message}`);
         }
 
-        const fullPath = normalizedPath ? `/${normalizedPath}/${name}` : `/${name}`;
+        const fullPath = storagePath
+            ? normalizeManagerPath(`${storagePath}/${name}`)
+            : normalizeManagerPath(`/${name}`);
+        const parentPath = normalizeManagerPath(path);
 
         return {
             id: fullPath,
@@ -91,21 +120,100 @@ export class SupabaseAdapter implements FileManagerAdapter {
             size: 0,
             mimeType: 'application/folder',
             path: fullPath,
-            parentPath: `/${normalizedPath}`,
+            parentPath,
             createdAt: new Date().toISOString(),
             modifiedAt: new Date().toISOString(),
         };
     }
 
-    async deleteItems(paths: string[]): Promise<void> {
-        const normalizedPaths = paths.map(p => p.startsWith('/') ? p.slice(1) : p);
+    async deleteItems(targets: DeleteItemTarget[]): Promise<void> {
+        for (const target of targets) {
+            const storagePath = toStoragePath(target.path);
 
-        const { error } = await this.supabase.storage
-            .from(this.bucketName)
-            .remove(normalizedPaths);
+            if (target.isDirectory) {
+                await this.deleteFolder(storagePath);
+            } else if (storagePath) {
+                await this.removeStorageObjects([storagePath]);
+            }
+        }
+    }
 
-        if (error) {
-            throw new Error(`Failed to delete items: ${error.message}`);
+    private async deleteFolder(storagePath: string): Promise<void> {
+        const pathsToDelete = new Set<string>();
+
+        for (const marker of FOLDER_MARKER_FILES) {
+            pathsToDelete.add(`${storagePath}/${marker}`);
+        }
+
+        await this.collectFilePathsUnderPrefix(storagePath, pathsToDelete);
+        await this.removeStorageObjects([...pathsToDelete]);
+    }
+
+    private async collectFilePathsUnderPrefix(
+        prefix: string,
+        paths: Set<string>
+    ): Promise<void> {
+        let offset = 0;
+        const limit = 100;
+
+        while (true) {
+            const { data: items, error } = await this.supabase.storage
+                .from(this.bucketName)
+                .list(prefix, {
+                    limit,
+                    offset,
+                    sortBy: { column: 'name', order: 'asc' },
+                });
+
+            if (error || !items || items.length === 0) {
+                break;
+            }
+
+            for (const item of items) {
+                const childPath = prefix ? `${prefix}/${item.name}` : item.name;
+
+                if (isStorageFolder(item)) {
+                    for (const marker of FOLDER_MARKER_FILES) {
+                        paths.add(`${childPath}/${marker}`);
+                    }
+                    await this.collectFilePathsUnderPrefix(childPath, paths);
+                } else {
+                    paths.add(childPath);
+                }
+            }
+
+            if (items.length < limit) {
+                break;
+            }
+
+            offset += limit;
+        }
+    }
+
+    private normalizeObjectKey(objectPath: string): string {
+        return objectPath.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\//, '');
+    }
+
+    private async removeStorageObjects(paths: string[]): Promise<void> {
+        const normalized = [
+            ...new Set(paths.map((p) => this.normalizeObjectKey(p)).filter(Boolean)),
+        ];
+
+        if (normalized.length === 0) {
+            return;
+        }
+
+        const batchSize = 100;
+
+        for (let i = 0; i < normalized.length; i += batchSize) {
+            const batch = normalized.slice(i, i + batchSize);
+            const { error } = await this.supabase.storage
+                .from(this.bucketName)
+                .remove(batch);
+
+            if (error) {
+                throw new Error(`Failed to delete items: ${error.message}`);
+            }
         }
     }
 
@@ -151,11 +259,11 @@ export class SupabaseAdapter implements FileManagerAdapter {
         return {
             id: item.id || `/${newPath}`,
             name: item.name,
-            isDirectory: !item.metadata,
+            isDirectory: isStorageFolder(item),
             size: item.metadata?.size || 0,
             mimeType: item.metadata?.mimetype || 'application/octet-stream',
-            path: `/${newPath}`,
-            parentPath: `/${parentPath}`,
+            path: normalizeManagerPath(`/${newPath}`),
+            parentPath: normalizeManagerPath(`/${parentPath}`),
             createdAt: item.created_at || new Date().toISOString(),
             modifiedAt: item.updated_at || item.created_at || new Date().toISOString(),
         };
@@ -202,12 +310,13 @@ export class SupabaseAdapter implements FileManagerAdapter {
         files: File[],
         onProgress?: (progress: UploadProgress[]) => void
     ): Promise<FileItem[]> {
-        const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+        const storagePath = toStoragePath(path);
         const uploadedItems: FileItem[] = [];
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            const filePath = normalizedPath ? `${normalizedPath}/${file.name}` : file.name;
+            const safeName = sanitizeStorageFileName(file.name);
+            const filePath = storagePath ? `${storagePath}/${safeName}` : safeName;
 
             if (onProgress) {
                 onProgress(
@@ -241,13 +350,13 @@ export class SupabaseAdapter implements FileManagerAdapter {
             }
 
             uploadedItems.push({
-                id: `/${filePath}`,
-                name: file.name,
+                id: normalizeManagerPath(`/${filePath}`),
+                name: safeName,
                 isDirectory: false,
                 size: file.size,
                 mimeType: file.type,
-                path: `/${filePath}`,
-                parentPath: `/${normalizedPath}`,
+                path: normalizeManagerPath(`/${filePath}`),
+                parentPath: normalizeManagerPath(path),
                 createdAt: new Date().toISOString(),
                 modifiedAt: new Date().toISOString(),
                 thumbnailUrl: this.getPreviewUrl(`/${filePath}`),
@@ -282,7 +391,7 @@ export class SupabaseAdapter implements FileManagerAdapter {
     }
 
     async saveFileContent(path: string, content: string | Blob): Promise<FileItem> {
-        const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+        const storagePath = toStoragePath(path);
 
         let blob: Blob;
         if (typeof content === 'string') {
@@ -291,39 +400,45 @@ export class SupabaseAdapter implements FileManagerAdapter {
             blob = content;
         }
 
+        // Storage RLS often allows INSERT/DELETE but not UPDATE; upsert needs UPDATE.
+        // Replace existing object via remove + upload instead.
+        await this.supabase.storage
+            .from(this.bucketName)
+            .remove([storagePath]);
+
         const { error } = await this.supabase.storage
             .from(this.bucketName)
-            .upload(normalizedPath, blob, {
+            .upload(storagePath, blob, {
                 contentType: blob.type || 'application/octet-stream',
-                upsert: true,
+                upsert: false,
             });
 
         if (error) {
             throw new Error(`Failed to save file: ${error.message}`);
         }
 
-        const fileName = normalizedPath.split('/').pop() || 'file';
-        const parentPath = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
+        const fileName = storagePath.split('/').pop() || 'file';
+        const parentPath = storagePath.substring(0, storagePath.lastIndexOf('/'));
 
         return {
-            id: `/${normalizedPath}`,
+            id: normalizeManagerPath(`/${storagePath}`),
             name: fileName,
             isDirectory: false,
             size: blob.size,
             mimeType: blob.type || 'application/octet-stream',
-            path: `/${normalizedPath}`,
-            parentPath: `/${parentPath}`,
+            path: normalizeManagerPath(`/${storagePath}`),
+            parentPath: parentPath ? normalizeManagerPath(`/${parentPath}`) : '/',
             createdAt: new Date().toISOString(),
             modifiedAt: new Date().toISOString(),
         };
     }
 
     getPreviewUrl(path: string): string {
-        const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+        const storagePath = toStoragePath(path);
 
         const { data } = this.supabase.storage
             .from(this.bucketName)
-            .getPublicUrl(normalizedPath);
+            .getPublicUrl(storagePath);
 
         return data.publicUrl;
     }
@@ -334,11 +449,11 @@ export class SupabaseAdapter implements FileManagerAdapter {
     }
 
     async search(path: string, query: string): Promise<FileItem[]> {
-        const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+        const storagePath = toStoragePath(path);
 
         const { data, error } = await this.supabase.storage
             .from(this.bucketName)
-            .list(normalizedPath, {
+            .list(storagePath, {
                 limit: 1000,
                 search: query,
             });
@@ -347,20 +462,24 @@ export class SupabaseAdapter implements FileManagerAdapter {
             throw new Error(`Failed to search: ${error.message}`);
         }
 
+        const parentPath = normalizeManagerPath(path);
+
         return (data || []).map((item: SupabaseFileObject) => {
-            const fullPath = normalizedPath ? `/${normalizedPath}/${item.name}` : `/${item.name}`;
+            const fullPath = storagePath
+                ? normalizeManagerPath(`${storagePath}/${item.name}`)
+                : normalizeManagerPath(`/${item.name}`);
 
             return {
                 id: item.id || fullPath,
                 name: item.name,
-                isDirectory: !item.metadata,
+                isDirectory: isStorageFolder(item),
                 size: item.metadata?.size || 0,
                 mimeType: item.metadata?.mimetype || 'application/octet-stream',
                 path: fullPath,
-                parentPath: `/${normalizedPath}`,
+                parentPath,
                 createdAt: item.created_at || new Date().toISOString(),
                 modifiedAt: item.updated_at || item.created_at || new Date().toISOString(),
-                thumbnailUrl: item.metadata ? this.getPreviewUrl(fullPath) : undefined,
+                thumbnailUrl: isStorageFolder(item) ? undefined : this.getPreviewUrl(fullPath),
             };
         });
     }

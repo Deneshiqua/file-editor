@@ -14,6 +14,7 @@ import type {
     ViewMode,
 } from '@/types';
 import React, { createContext, useCallback, useContext, useReducer, useRef } from 'react';
+import { normalizeManagerPath } from '@/utils/helpers';
 
 // Initial state
 const initialState: FileManagerState = {
@@ -21,7 +22,7 @@ const initialState: FileManagerState = {
     files: [],
     selectedItems: [],
     viewMode: 'grid',
-    sortConfig: { field: 'name', order: 'asc' },
+    sortConfig: { field: 'modifiedAt', order: 'desc' },
     clipboard: { items: [], operation: null },
     searchQuery: '',
     activeCategory: 'all',
@@ -180,6 +181,7 @@ interface FileManagerContextValue {
     setCategory: (category: FileCategory) => void;
     openModal: (modal: ModalType) => void;
     closeModal: () => void;
+    clearUploadProgress: () => void;
     openPreview: (item: FileItem) => void;
     openRename: (item: FileItem) => void;
     saveFileContent: (path: string, content: string | Blob) => Promise<FileItem>;
@@ -200,7 +202,6 @@ export function FileManagerProvider({
     config = {},
 }: FileManagerProviderProps) {
     const mergedConfig: FileManagerConfig = {
-        rootPath: '/',
         viewMode: 'grid',
         theme: 'dark',
         showSidebar: true,
@@ -209,14 +210,16 @@ export function FileManagerProvider({
         height: '700px',
         width: '100%',
         ...config,
+        rootPath: normalizeManagerPath(config.rootPath || '/'),
     };
+    const rootPath = mergedConfig.rootPath || '/';
 
     const [state, dispatch] = useReducer(fileManagerReducer, {
         ...initialState,
-        currentPath: mergedConfig.rootPath || '/',
+        currentPath: rootPath,
         viewMode: mergedConfig.viewMode || 'grid',
         activeCategory: mergedConfig.initialCategory || 'all',
-        navigationHistory: [mergedConfig.rootPath || '/'],
+        navigationHistory: [rootPath],
     });
 
     const adapterRef = useRef(adapter);
@@ -224,13 +227,15 @@ export function FileManagerProvider({
 
     // Helper: Check if path is within rootPath
     const isPathWithinRoot = useCallback((path: string): boolean => {
-        const rootPath = mergedConfig.rootPath || '/';
-        const normalizedPath = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;
-        const normalizedRoot = rootPath.endsWith('/') && rootPath !== '/' ? rootPath.slice(0, -1) : rootPath;
+        const normalizedPath = normalizeManagerPath(path);
+        const normalizedRoot = normalizeManagerPath(mergedConfig.rootPath || '/');
 
-        if (normalizedRoot === '/') return true; // Root is '/', all paths are within
+        if (normalizedRoot === '/') return true;
 
-        return normalizedPath === normalizedRoot || normalizedPath.startsWith(normalizedRoot + '/');
+        return (
+            normalizedPath === normalizedRoot ||
+            normalizedPath.startsWith(`${normalizedRoot}/`)
+        );
     }, [mergedConfig.rootPath]);
 
     // Load files for a given path
@@ -293,19 +298,19 @@ export function FileManagerProvider({
     }, [state.historyIndex, state.navigationHistory, loadFiles]);
 
     const goUp = useCallback(() => {
-        const rootPath = mergedConfig.rootPath || '/';
+        const rootPath = mergedConfig.rootPath;
 
         // Already at root, cannot go up
         if (state.currentPath === rootPath) {
             return;
         }
 
-        const parentPath = state.currentPath === '/'
-            ? '/'
-            : state.currentPath.split('/').slice(0, -1).join('/') || '/';
+        const parentPath = normalizeManagerPath(
+            state.currentPath.split('/').slice(0, -1).join('/') || '/'
+        );
 
         // Don't go above rootPath
-        if (!isPathWithinRoot(parentPath) || parentPath.length < rootPath.length) {
+        if (!isPathWithinRoot(parentPath)) {
             return;
         }
 
@@ -345,7 +350,9 @@ export function FileManagerProvider({
             if (toDelete.length === 0) return;
             dispatch({ type: 'SET_LOADING', payload: true });
             try {
-                await adapterRef.current.deleteItems(toDelete.map((i) => i.path));
+                await adapterRef.current.deleteItems(
+                    toDelete.map((i) => ({ path: i.path, isDirectory: i.isDirectory }))
+                );
                 dispatch({ type: 'CLEAR_SELECTION' });
                 dispatch({ type: 'SET_MODAL', payload: null });
                 await refreshFiles();
@@ -527,6 +534,9 @@ export function FileManagerProvider({
 
     // Modals
     const openModal = useCallback((modal: ModalType) => {
+        if (modal === 'upload') {
+            dispatch({ type: 'SET_UPLOAD_PROGRESS', payload: [] });
+        }
         dispatch({ type: 'SET_MODAL', payload: modal });
     }, []);
 
@@ -534,6 +544,11 @@ export function FileManagerProvider({
         dispatch({ type: 'SET_MODAL', payload: null });
         dispatch({ type: 'SET_PREVIEW_ITEM', payload: null });
         dispatch({ type: 'SET_RENAME_ITEM', payload: null });
+        dispatch({ type: 'SET_UPLOAD_PROGRESS', payload: [] });
+    }, []);
+
+    const clearUploadProgress = useCallback(() => {
+        dispatch({ type: 'SET_UPLOAD_PROGRESS', payload: [] });
     }, []);
 
     const openPreview = useCallback((item: FileItem) => {
@@ -574,6 +589,7 @@ export function FileManagerProvider({
         setSearch,
         openModal,
         closeModal,
+        clearUploadProgress,
         openPreview,
         openRename,
         saveFileContent: saveFileContentFn,

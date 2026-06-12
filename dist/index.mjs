@@ -1,5 +1,6 @@
 import React2, { createContext, useReducer, useRef, useCallback, useContext, useState, useEffect } from 'react';
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { createPortal } from 'react-dom';
 import Editor from '@monaco-editor/react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@supabase/supabase-js';
@@ -23,12 +24,226 @@ var __spreadValues = (a, b) => {
   return a;
 };
 var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+
+// src/utils/helpers.ts
+function normalizeManagerPath(path) {
+  if (!path || path === "/") return "/";
+  let normalized = path.replace(/\\/g, "/").replace(/\/+/g, "/");
+  if (!normalized.startsWith("/")) {
+    normalized = `/${normalized}`;
+  }
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
+}
+function toStoragePath(path) {
+  const normalized = normalizeManagerPath(path);
+  return normalized === "/" ? "" : normalized.slice(1);
+}
+function sanitizeStorageFileName(fileName, maxBaseLength = 180) {
+  const trimmed = fileName.trim();
+  if (!trimmed) {
+    return `file-${Date.now()}`;
+  }
+  const lastDot = trimmed.lastIndexOf(".");
+  const hasExtension = lastDot > 0 && lastDot < trimmed.length - 1;
+  const rawBase = hasExtension ? trimmed.slice(0, lastDot) : trimmed;
+  const extension = hasExtension ? trimmed.slice(lastDot + 1).toLowerCase() : "";
+  let base = rawBase.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^[-.]+|[-.]+$/g, "");
+  if (!base) {
+    base = "file";
+  }
+  if (base.length > maxBaseLength) {
+    base = base.slice(0, maxBaseLength).replace(/[-.]+$/g, "");
+  }
+  const safeExtension = extension.replace(/[^a-z0-9]+/gi, "");
+  return safeExtension ? `${base}.${safeExtension}` : base;
+}
+function formatFileSize(bytes) {
+  if (bytes === 0) return "\u2014";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const size = bytes / Math.pow(1024, i);
+  return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  const now = /* @__PURE__ */ new Date();
+  const diff = now.getTime() - date.getTime();
+  const seconds = Math.floor(diff / 1e3);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 7) {
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
+  }
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return "Just now";
+}
+function getFileExtension(filename) {
+  const parts = filename.split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "";
+}
+function getFileBaseName(filename) {
+  const lastDotIndex = filename.lastIndexOf(".");
+  if (lastDotIndex <= 0) return filename;
+  return filename.substring(0, lastDotIndex);
+}
+function truncateFileName(filename, maxLength = 15) {
+  if (filename.length <= maxLength) return filename;
+  const lastDotIndex = filename.lastIndexOf(".");
+  if (lastDotIndex <= 0) {
+    return filename.substring(0, maxLength - 3) + "...";
+  }
+  const extension = filename.substring(lastDotIndex);
+  const nameWithoutExt = filename.substring(0, lastDotIndex);
+  if (extension.length >= maxLength - 3) {
+    return filename.substring(0, maxLength - 3) + "...";
+  }
+  const availableLength = maxLength - extension.length - 3;
+  if (availableLength <= 0) {
+    return filename.substring(0, maxLength - 3) + "...";
+  }
+  return nameWithoutExt.substring(0, availableLength) + "..." + extension;
+}
+function isPreviewable(mimeType, name) {
+  const ext = getFileExtension(name);
+  if (mimeType.startsWith("image/")) return true;
+  if (mimeType.startsWith("video/")) return true;
+  if (mimeType.startsWith("audio/")) return true;
+  if (mimeType === "application/pdf") return true;
+  if (["txt", "md", "json", "xml", "csv", "log", "js", "ts", "jsx", "tsx", "css", "html", "py", "java", "cpp", "c", "h", "sh", "yml", "yaml"].includes(ext)) return true;
+  return false;
+}
+var FILE_CATEGORIES = {
+  documents: [
+    "pdf",
+    "doc",
+    "docx",
+    "txt",
+    "rtf",
+    "odt",
+    "xls",
+    "xlsx",
+    "csv",
+    "ods",
+    "ppt",
+    "pptx",
+    "odp",
+    "md",
+    "json",
+    "xml",
+    "yaml",
+    "yml"
+  ],
+  images: [
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "bmp",
+    "svg",
+    "webp",
+    "ico",
+    "tiff",
+    "tif",
+    "heic",
+    "heif"
+  ],
+  media: [
+    "mp3",
+    "wav",
+    "ogg",
+    "flac",
+    "aac",
+    "m4a",
+    "mp4",
+    "avi",
+    "mkv",
+    "mov",
+    "wmv",
+    "flv",
+    "webm",
+    "m4v"
+  ]
+};
+function getFileCategory(file) {
+  if (file.isDirectory) return "all";
+  const ext = getFileExtension(file.name);
+  if (FILE_CATEGORIES.documents.includes(ext)) return "documents";
+  if (FILE_CATEGORIES.images.includes(ext)) return "images";
+  if (FILE_CATEGORIES.media.includes(ext)) return "media";
+  return "other";
+}
+function filterByCategory(files, category) {
+  if (category === "all") return files;
+  return files.filter((file) => {
+    if (file.isDirectory) return true;
+    return getFileCategory(file) === category;
+  });
+}
+function getAcceptForCategory(category) {
+  if (category === "all" || category === "other") return void 0;
+  const extensions = FILE_CATEGORIES[category];
+  return extensions.map((ext) => `.${ext}`).join(",");
+}
+function fileMatchesCategory(fileName, category) {
+  if (category === "all") return true;
+  if (category === "other") {
+    const ext2 = getFileExtension(fileName);
+    return !FILE_CATEGORIES.documents.includes(ext2) && !FILE_CATEGORIES.images.includes(ext2) && !FILE_CATEGORIES.media.includes(ext2);
+  }
+  const ext = getFileExtension(fileName);
+  return FILE_CATEGORIES[category].includes(ext);
+}
+function sortFiles(files, config) {
+  const sorted = [...files].sort((a, b) => {
+    if (a.isDirectory && !b.isDirectory) return -1;
+    if (!a.isDirectory && b.isDirectory) return 1;
+    let comparison = 0;
+    switch (config.field) {
+      case "name":
+        comparison = a.name.localeCompare(b.name, void 0, { sensitivity: "base" });
+        break;
+      case "size":
+        comparison = a.size - b.size;
+        break;
+      case "type":
+        comparison = getFileExtension(a.name).localeCompare(getFileExtension(b.name));
+        break;
+      case "modifiedAt":
+        comparison = new Date(a.modifiedAt).getTime() - new Date(b.modifiedAt).getTime();
+        break;
+    }
+    return config.order === "asc" ? comparison : -comparison;
+  });
+  return sorted;
+}
+function filterFiles(files, query, hideSystemFiles = true) {
+  let filtered = files;
+  if (hideSystemFiles) {
+    const systemFilePatterns = [".folderkeep", ".gitkeep", ".DS_Store", "Thumbs.db"];
+    filtered = filtered.filter((f) => !systemFilePatterns.includes(f.name));
+  }
+  if (!query.trim()) return filtered;
+  const q = query.toLowerCase();
+  return filtered.filter(
+    (f) => f.name.toLowerCase().includes(q) || getFileExtension(f.name).includes(q)
+  );
+}
 var initialState = {
   currentPath: "/",
   files: [],
   selectedItems: [],
   viewMode: "grid",
-  sortConfig: { field: "name", order: "asc" },
+  sortConfig: { field: "modifiedAt", order: "desc" },
   clipboard: { items: [], operation: null },
   searchQuery: "",
   activeCategory: "all",
@@ -129,8 +344,7 @@ function FileManagerProvider({
   adapter,
   config = {}
 }) {
-  const mergedConfig = __spreadValues({
-    rootPath: "/",
+  const mergedConfig = __spreadProps(__spreadValues({
     viewMode: "grid",
     theme: "dark",
     showSidebar: true,
@@ -138,21 +352,23 @@ function FileManagerProvider({
     showBreadcrumb: true,
     height: "700px",
     width: "100%"
-  }, config);
+  }, config), {
+    rootPath: normalizeManagerPath(config.rootPath || "/")
+  });
+  const rootPath = mergedConfig.rootPath || "/";
   const [state, dispatch] = useReducer(fileManagerReducer, __spreadProps(__spreadValues({}, initialState), {
-    currentPath: mergedConfig.rootPath || "/",
+    currentPath: rootPath,
     viewMode: mergedConfig.viewMode || "grid",
     activeCategory: mergedConfig.initialCategory || "all",
-    navigationHistory: [mergedConfig.rootPath || "/"]
+    navigationHistory: [rootPath]
   }));
   const adapterRef = useRef(adapter);
   adapterRef.current = adapter;
   const isPathWithinRoot = useCallback((path) => {
-    const rootPath = mergedConfig.rootPath || "/";
-    const normalizedPath = path.endsWith("/") && path !== "/" ? path.slice(0, -1) : path;
-    const normalizedRoot = rootPath.endsWith("/") && rootPath !== "/" ? rootPath.slice(0, -1) : rootPath;
+    const normalizedPath = normalizeManagerPath(path);
+    const normalizedRoot = normalizeManagerPath(mergedConfig.rootPath || "/");
     if (normalizedRoot === "/") return true;
-    return normalizedPath === normalizedRoot || normalizedPath.startsWith(normalizedRoot + "/");
+    return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
   }, [mergedConfig.rootPath]);
   const loadFiles = useCallback(async (path) => {
     dispatch({ type: "SET_LOADING", payload: true });
@@ -204,12 +420,14 @@ function FileManagerProvider({
     }
   }, [state.historyIndex, state.navigationHistory, loadFiles]);
   const goUp = useCallback(() => {
-    const rootPath = mergedConfig.rootPath || "/";
-    if (state.currentPath === rootPath) {
+    const rootPath2 = mergedConfig.rootPath;
+    if (state.currentPath === rootPath2) {
       return;
     }
-    const parentPath = state.currentPath === "/" ? "/" : state.currentPath.split("/").slice(0, -1).join("/") || "/";
-    if (!isPathWithinRoot(parentPath) || parentPath.length < rootPath.length) {
+    const parentPath = normalizeManagerPath(
+      state.currentPath.split("/").slice(0, -1).join("/") || "/"
+    );
+    if (!isPathWithinRoot(parentPath)) {
       return;
     }
     if (parentPath !== state.currentPath) {
@@ -244,7 +462,9 @@ function FileManagerProvider({
       if (toDelete.length === 0) return;
       dispatch({ type: "SET_LOADING", payload: true });
       try {
-        await adapterRef.current.deleteItems(toDelete.map((i) => i.path));
+        await adapterRef.current.deleteItems(
+          toDelete.map((i) => ({ path: i.path, isDirectory: i.isDirectory }))
+        );
         dispatch({ type: "CLEAR_SELECTION" });
         dispatch({ type: "SET_MODAL", payload: null });
         await refreshFiles();
@@ -399,12 +619,19 @@ function FileManagerProvider({
     dispatch({ type: "SET_CATEGORY", payload: category });
   }, []);
   const openModal = useCallback((modal) => {
+    if (modal === "upload") {
+      dispatch({ type: "SET_UPLOAD_PROGRESS", payload: [] });
+    }
     dispatch({ type: "SET_MODAL", payload: modal });
   }, []);
   const closeModal = useCallback(() => {
     dispatch({ type: "SET_MODAL", payload: null });
     dispatch({ type: "SET_PREVIEW_ITEM", payload: null });
     dispatch({ type: "SET_RENAME_ITEM", payload: null });
+    dispatch({ type: "SET_UPLOAD_PROGRESS", payload: [] });
+  }, []);
+  const clearUploadProgress = useCallback(() => {
+    dispatch({ type: "SET_UPLOAD_PROGRESS", payload: [] });
   }, []);
   const openPreview = useCallback((item) => {
     dispatch({ type: "SET_PREVIEW_ITEM", payload: item });
@@ -442,6 +669,7 @@ function FileManagerProvider({
     setSearch,
     openModal,
     closeModal,
+    clearUploadProgress,
     openPreview,
     openRename,
     saveFileContent: saveFileContentFn
@@ -507,181 +735,6 @@ function ErrorBanner() {
       }
     )
   ] });
-}
-
-// src/utils/helpers.ts
-function formatFileSize(bytes) {
-  if (bytes === 0) return "\u2014";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const size = bytes / Math.pow(1024, i);
-  return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const now = /* @__PURE__ */ new Date();
-  const diff = now.getTime() - date.getTime();
-  const seconds = Math.floor(diff / 1e3);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  if (days > 7) {
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric"
-    });
-  }
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return "Just now";
-}
-function getFileExtension(filename) {
-  const parts = filename.split(".");
-  return parts.length > 1 ? parts.pop().toLowerCase() : "";
-}
-function truncateFileName(filename, maxLength = 15) {
-  if (filename.length <= maxLength) return filename;
-  const lastDotIndex = filename.lastIndexOf(".");
-  if (lastDotIndex <= 0) {
-    return filename.substring(0, maxLength - 3) + "...";
-  }
-  const extension = filename.substring(lastDotIndex);
-  const nameWithoutExt = filename.substring(0, lastDotIndex);
-  if (extension.length >= maxLength - 3) {
-    return filename.substring(0, maxLength - 3) + "...";
-  }
-  const availableLength = maxLength - extension.length - 3;
-  if (availableLength <= 0) {
-    return filename.substring(0, maxLength - 3) + "...";
-  }
-  return nameWithoutExt.substring(0, availableLength) + "..." + extension;
-}
-function isPreviewable(mimeType, name) {
-  const ext = getFileExtension(name);
-  if (mimeType.startsWith("image/")) return true;
-  if (mimeType.startsWith("video/")) return true;
-  if (mimeType.startsWith("audio/")) return true;
-  if (mimeType === "application/pdf") return true;
-  if (["txt", "md", "json", "xml", "csv", "log", "js", "ts", "jsx", "tsx", "css", "html", "py", "java", "cpp", "c", "h", "sh", "yml", "yaml"].includes(ext)) return true;
-  return false;
-}
-var FILE_CATEGORIES = {
-  documents: [
-    "pdf",
-    "doc",
-    "docx",
-    "txt",
-    "rtf",
-    "odt",
-    "xls",
-    "xlsx",
-    "csv",
-    "ods",
-    "ppt",
-    "pptx",
-    "odp",
-    "md",
-    "json",
-    "xml",
-    "yaml",
-    "yml"
-  ],
-  images: [
-    "jpg",
-    "jpeg",
-    "png",
-    "gif",
-    "bmp",
-    "svg",
-    "webp",
-    "ico",
-    "tiff",
-    "tif",
-    "heic",
-    "heif"
-  ],
-  media: [
-    "mp3",
-    "wav",
-    "ogg",
-    "flac",
-    "aac",
-    "m4a",
-    "mp4",
-    "avi",
-    "mkv",
-    "mov",
-    "wmv",
-    "flv",
-    "webm",
-    "m4v"
-  ]
-};
-function getFileCategory(file) {
-  if (file.isDirectory) return "all";
-  const ext = getFileExtension(file.name);
-  if (FILE_CATEGORIES.documents.includes(ext)) return "documents";
-  if (FILE_CATEGORIES.images.includes(ext)) return "images";
-  if (FILE_CATEGORIES.media.includes(ext)) return "media";
-  return "other";
-}
-function filterByCategory(files, category) {
-  if (category === "all") return files;
-  return files.filter((file) => {
-    if (file.isDirectory) return true;
-    return getFileCategory(file) === category;
-  });
-}
-function getAcceptForCategory(category) {
-  if (category === "all" || category === "other") return void 0;
-  const extensions = FILE_CATEGORIES[category];
-  return extensions.map((ext) => `.${ext}`).join(",");
-}
-function fileMatchesCategory(fileName, category) {
-  if (category === "all") return true;
-  if (category === "other") {
-    const ext2 = getFileExtension(fileName);
-    return !FILE_CATEGORIES.documents.includes(ext2) && !FILE_CATEGORIES.images.includes(ext2) && !FILE_CATEGORIES.media.includes(ext2);
-  }
-  const ext = getFileExtension(fileName);
-  return FILE_CATEGORIES[category].includes(ext);
-}
-function sortFiles(files, config) {
-  const sorted = [...files].sort((a, b) => {
-    if (a.isDirectory && !b.isDirectory) return -1;
-    if (!a.isDirectory && b.isDirectory) return 1;
-    let comparison = 0;
-    switch (config.field) {
-      case "name":
-        comparison = a.name.localeCompare(b.name, void 0, { sensitivity: "base" });
-        break;
-      case "size":
-        comparison = a.size - b.size;
-        break;
-      case "type":
-        comparison = getFileExtension(a.name).localeCompare(getFileExtension(b.name));
-        break;
-      case "modifiedAt":
-        comparison = new Date(a.modifiedAt).getTime() - new Date(b.modifiedAt).getTime();
-        break;
-    }
-    return config.order === "asc" ? comparison : -comparison;
-  });
-  return sorted;
-}
-function filterFiles(files, query, hideSystemFiles = true) {
-  let filtered = files;
-  if (hideSystemFiles) {
-    const systemFilePatterns = [".folderkeep", ".gitkeep", ".DS_Store", "Thumbs.db"];
-    filtered = filtered.filter((f) => !systemFilePatterns.includes(f.name));
-  }
-  if (!query.trim()) return filtered;
-  const q = query.toLowerCase();
-  return filtered.filter(
-    (f) => f.name.toLowerCase().includes(q) || getFileExtension(f.name).includes(q)
-  );
 }
 var defaultProps = {
   size: 20,
@@ -807,6 +860,7 @@ var HomeIcon = ({ size = defaultProps.size, color = defaultProps.color, classNam
   /* @__PURE__ */ jsx("path", { d: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" }),
   /* @__PURE__ */ jsx("polyline", { points: "9 22 9 12 15 12 15 22" })
 ] });
+var CheckIcon = ({ size = defaultProps.size, color = defaultProps.color, className }) => /* @__PURE__ */ jsx("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: color, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", className, children: /* @__PURE__ */ jsx("polyline", { points: "20 6 9 17 4 12" }) });
 var EmptyIcon = ({ size = 80, className }) => /* @__PURE__ */ jsxs("svg", { width: size, height: size, viewBox: "0 0 80 80", fill: "none", className, children: [
   /* @__PURE__ */ jsx("rect", { x: "15", y: "10", width: "50", height: "60", rx: "4", stroke: "currentColor", strokeWidth: "2", strokeDasharray: "4 4", opacity: "0.3" }),
   /* @__PURE__ */ jsx("path", { d: "M35 35 L45 45 M45 35 L35 45", stroke: "currentColor", strokeWidth: "2", opacity: "0.3" }),
@@ -871,7 +925,8 @@ function Breadcrumb() {
 // src/components/ContextMenu/ContextMenu.module.css
 var ContextMenu_default = {};
 var styles3 = Object.keys(ContextMenu_default).length > 0 ? ContextMenu_default : {
-  overlay: "overlay",
+  contextMenuPortal: "contextMenuPortal",
+  contextMenuBackdrop: "contextMenuBackdrop",
   menu: "menu",
   menuItem: "menuItem",
   menuItemDanger: "menuItemDanger",
@@ -883,6 +938,7 @@ var styles3 = Object.keys(ContextMenu_default).length > 0 ? ContextMenu_default 
 function ContextMenu({ position, item, onClose }) {
   const menuRef = useRef(null);
   const {
+    config,
     state,
     navigateTo,
     openPreview,
@@ -895,6 +951,24 @@ function ContextMenu({ position, item, onClose }) {
     selectItem
   } = useFileManager();
   const hasClipboard = state.clipboard.items.length > 0;
+  const isSelectionMode = config.selectionMode === true;
+  const theme = config.theme || "dark";
+  const selectCount = item && state.selectedItems.some((selected) => selected.id === item.id) ? state.selectedItems.length : item ? 1 : state.selectedItems.length;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      var _a;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if ((_a = menuRef.current) == null ? void 0 : _a.contains(target)) return;
+      onClose();
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [onClose]);
   useEffect(() => {
     if (menuRef.current) {
       const rect = menuRef.current.getBoundingClientRect();
@@ -912,163 +986,198 @@ function ContextMenu({ position, item, onClose }) {
     action();
     onClose();
   };
-  return /* @__PURE__ */ jsxs(Fragment, { children: [
-    /* @__PURE__ */ jsx("div", { className: styles3.overlay, onClick: onClose, onContextMenu: (e) => {
-      e.preventDefault();
-      onClose();
-    } }),
-    /* @__PURE__ */ jsx(
-      "div",
-      {
-        ref: menuRef,
-        className: styles3.menu,
-        style: { left: position.x, top: position.y },
-        children: item ? /* @__PURE__ */ jsxs(Fragment, { children: [
-          item.isDirectory && /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(() => navigateTo(item.path)),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(FolderOpenIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Open" })
-              ]
-            }
-          ),
-          !item.isDirectory && isPreviewable(item.mimeType, item.name) && /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(() => openPreview(item)),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(FolderOpenIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Preview" })
-              ]
-            }
-          ),
-          !item.isDirectory && /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(() => downloadFile(item)),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(DownloadIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Download" })
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsx("div", { className: styles3.menuSeparator }),
-          /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(() => cutItems([item])),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(CutIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Cut" }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Ctrl+X" })
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(() => copyItems([item])),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(CopyIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Copy" }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Ctrl+C" })
-              ]
-            }
-          ),
-          hasClipboard && /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(pasteItems),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(PasteIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Paste" }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Ctrl+V" })
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsx("div", { className: styles3.menuSeparator }),
-          /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(() => openRename(item)),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(RenameIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Rename" }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "F2" })
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItemDanger,
-              onClick: () => {
-                selectAndDelete();
-              },
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(DeleteIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Delete" }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Del" })
-              ]
-            }
-          )
-        ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(() => openModal("newFolder")),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(NewFolderIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "New Folder" })
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles3.menuItem,
-              onClick: () => handleAction(() => openModal("upload")),
-              children: [
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(UploadIcon, { size: 16 }) }),
-                /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Upload Files" })
-              ]
-            }
-          ),
-          hasClipboard && /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsx("div", { className: styles3.menuSeparator }),
-            /* @__PURE__ */ jsxs(
-              "button",
-              {
-                className: styles3.menuItem,
-                onClick: () => handleAction(pasteItems),
-                children: [
-                  /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(PasteIcon, { size: 16 }) }),
-                  /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Paste" }),
-                  /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Ctrl+V" })
-                ]
-              }
-            )
-          ] })
-        ] })
-      }
-    )
-  ] });
-  function selectAndDelete() {
+  const selectAndDelete = () => {
     if (!item) return;
     selectItem(item);
     onClose();
     openModal("delete");
+  };
+  const handleSelect = () => {
+    if (!config.onFileSelect) return;
+    const items = item && state.selectedItems.some((selected) => selected.id === item.id) ? state.selectedItems : item ? [item] : state.selectedItems;
+    if (items.length > 0) {
+      config.onFileSelect(items);
+    }
+  };
+  const menu = /* @__PURE__ */ jsxs(
+    "div",
+    {
+      "data-fm-root": "true",
+      "data-fm-context-menu": "true",
+      "data-fm-theme": theme,
+      className: styles3.contextMenuPortal,
+      children: [
+        /* @__PURE__ */ jsx("div", { className: styles3.contextMenuBackdrop, onClick: onClose, onContextMenu: (e) => {
+          e.preventDefault();
+          onClose();
+        } }),
+        /* @__PURE__ */ jsx(
+          "div",
+          {
+            ref: menuRef,
+            className: styles3.menu,
+            style: { left: position.x, top: position.y },
+            children: item ? /* @__PURE__ */ jsxs(Fragment, { children: [
+              item.isDirectory && /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(() => navigateTo(item.path)),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(FolderOpenIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Open" })
+                  ]
+                }
+              ),
+              !item.isDirectory && isSelectionMode && /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(handleSelect),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(CheckIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsxs("span", { className: styles3.menuItemLabel, children: [
+                      "Select (",
+                      selectCount,
+                      ")"
+                    ] })
+                  ]
+                }
+              ),
+              !item.isDirectory && isPreviewable(item.mimeType, item.name) && /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(() => openPreview(item)),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(FolderOpenIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Preview" })
+                  ]
+                }
+              ),
+              !item.isDirectory && /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(() => downloadFile(item)),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(DownloadIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Download" })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: styles3.menuSeparator }),
+              /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(() => cutItems([item])),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(CutIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Cut" }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Ctrl+X" })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(() => copyItems([item])),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(CopyIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Copy" }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Ctrl+C" })
+                  ]
+                }
+              ),
+              hasClipboard && /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(pasteItems),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(PasteIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Paste" }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Ctrl+V" })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: styles3.menuSeparator }),
+              /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(() => openRename(item)),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(RenameIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Rename" }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "F2" })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItemDanger,
+                  onClick: () => {
+                    selectAndDelete();
+                  },
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(DeleteIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Delete" }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Del" })
+                  ]
+                }
+              )
+            ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+              /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(() => openModal("newFolder")),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(NewFolderIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "New Folder" })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  className: styles3.menuItem,
+                  onClick: () => handleAction(() => openModal("upload")),
+                  children: [
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(UploadIcon, { size: 16 }) }),
+                    /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Upload Files" })
+                  ]
+                }
+              ),
+              hasClipboard && /* @__PURE__ */ jsxs(Fragment, { children: [
+                /* @__PURE__ */ jsx("div", { className: styles3.menuSeparator }),
+                /* @__PURE__ */ jsxs(
+                  "button",
+                  {
+                    className: styles3.menuItem,
+                    onClick: () => handleAction(pasteItems),
+                    children: [
+                      /* @__PURE__ */ jsx("span", { className: styles3.menuItemIcon, children: /* @__PURE__ */ jsx(PasteIcon, { size: 16 }) }),
+                      /* @__PURE__ */ jsx("span", { className: styles3.menuItemLabel, children: "Paste" }),
+                      /* @__PURE__ */ jsx("span", { className: styles3.menuItemShortcut, children: "Ctrl+V" })
+                    ]
+                  }
+                )
+              ] })
+            ] })
+          }
+        )
+      ]
+    }
+  );
+  if (!mounted) {
+    return null;
   }
+  return createPortal(menu, document.body);
 }
 
 // src/components/Modals/Modals.module.css
@@ -1092,6 +1201,8 @@ var modalClassNames = {
   inputGroup: "inputGroup",
   inputLabel: "inputLabel",
   input: "input",
+  saveAsInputRow: "saveAsInputRow",
+  saveAsExtension: "saveAsExtension",
   dropZone: "dropZone",
   dropZoneActive: "dropZoneActive",
   dropZoneIcon: "dropZoneIcon",
@@ -1111,6 +1222,7 @@ var modalClassNames = {
   statusIcon: "statusIcon",
   previewContainer: "previewContainer",
   previewContainerEditor: "previewContainerEditor",
+  filerobotEditorHost: "filerobotEditorHost",
   previewImage: "previewImage",
   previewVideo: "previewVideo",
   previewAudio: "previewAudio",
@@ -1169,7 +1281,7 @@ var styles5 = Object.keys(FileGrid_default).length > 0 ? FileGrid_default : {
   gridItemSelected: "gridItemSelected",
   iconWrapper: "iconWrapper",
   thumbnail: "thumbnail",
-  fileName: "fileName",
+  gridFileName: "gridFileName",
   fileMeta: "fileMeta"
 };
 function FileGrid({ files, onContextMenu }) {
@@ -1199,12 +1311,24 @@ function FileGrid({ files, onContextMenu }) {
   const handleBackgroundClick = () => {
     clearSelection();
   };
+  const handleBackgroundContextMenu = (e) => {
+    e.preventDefault();
+    onContextMenu(e);
+  };
   if (files.length === 0) {
-    return /* @__PURE__ */ jsxs("div", { className: styles5.empty, onClick: handleBackgroundClick, children: [
-      /* @__PURE__ */ jsx(EmptyIcon, {}),
-      /* @__PURE__ */ jsx("span", { className: styles5.emptyText, children: "This folder is empty" }),
-      /* @__PURE__ */ jsx("span", { className: styles5.emptySubtext, children: "Drop files here or use the Upload button" })
-    ] });
+    return /* @__PURE__ */ jsxs(
+      "div",
+      {
+        className: styles5.empty,
+        onClick: handleBackgroundClick,
+        onContextMenu: handleBackgroundContextMenu,
+        children: [
+          /* @__PURE__ */ jsx(EmptyIcon, {}),
+          /* @__PURE__ */ jsx("span", { className: styles5.emptyText, children: "This folder is empty" }),
+          /* @__PURE__ */ jsx("span", { className: styles5.emptySubtext, children: "Drop files here or use the Upload button" })
+        ]
+      }
+    );
   }
   return /* @__PURE__ */ jsx(
     "div",
@@ -1243,7 +1367,7 @@ function FileGrid({ files, onContextMenu }) {
                   loading: "lazy"
                 }
               ) : getFileIcon(item, 42) }),
-              /* @__PURE__ */ jsx("span", { className: styles5.fileName, title: item.name, children: truncateFileName(item.name, 15) }),
+              /* @__PURE__ */ jsx("span", { className: styles5.gridFileName, title: item.name, children: truncateFileName(item.name, 15) }),
               !item.isDirectory && /* @__PURE__ */ jsx("span", { className: styles5.fileMeta, children: formatFileSize(item.size) })
             ]
           },
@@ -1259,22 +1383,28 @@ var FileList_default = {};
 var styles6 = Object.keys(FileList_default).length > 0 ? FileList_default : {
   sortIndicator: "sortIndicator",
   listEmpty: "listEmpty",
-  emptyText: "emptyText",
-  emptySubtext: "emptySubtext",
-  table: "table",
-  thead: "thead",
-  headerRow: "headerRow",
+  listEmptyText: "listEmptyText",
+  listEmptySubtext: "listEmptySubtext",
+  fileListTable: "fileListTable",
+  fileListHeader: "fileListHeader",
+  fileListHeaderRow: "fileListHeaderRow",
+  fileListBody: "fileListBody",
+  fileListRow: "fileListRow",
+  fileListRowSelected: "fileListRowSelected",
   checkbox: "checkbox",
+  checkboxHeaderCell: "checkboxHeaderCell",
   headerCell: "headerCell",
   headerCellActive: "headerCellActive",
-  row: "row",
-  rowSelected: "rowSelected",
-  cell: "cell",
-  nameCell: "nameCell",
-  fileName: "fileName",
-  sizeCell: "sizeCell",
-  typeCell: "typeCell",
-  dateCell: "dateCell"
+  listCheckboxCell: "listCheckboxCell",
+  listNameCell: "listNameCell",
+  listFileName: "listFileName",
+  listSizeCell: "listSizeCell",
+  listTypeCell: "listTypeCell",
+  listDateCell: "listDateCell",
+  listNameHeaderCell: "listNameHeaderCell",
+  listSizeHeaderCell: "listSizeHeaderCell",
+  listTypeHeaderCell: "listTypeHeaderCell",
+  listDateHeaderCell: "listDateHeaderCell"
 };
 function FileList({ files, onContextMenu }) {
   const {
@@ -1309,16 +1439,28 @@ function FileList({ files, onContextMenu }) {
     if (state.sortConfig.field !== field) return null;
     return /* @__PURE__ */ jsx("span", { className: styles6.sortIndicator, children: state.sortConfig.order === "asc" ? "\u25B2" : "\u25BC" });
   };
+  const handleBackgroundContextMenu = (e) => {
+    e.preventDefault();
+    onContextMenu(e);
+  };
   if (files.length === 0) {
-    return /* @__PURE__ */ jsxs("div", { className: styles6.listEmpty, onClick: () => clearSelection(), children: [
-      /* @__PURE__ */ jsx(EmptyIcon, {}),
-      /* @__PURE__ */ jsx("span", { className: styles6.emptyText, children: "This folder is empty" }),
-      /* @__PURE__ */ jsx("span", { className: styles6.emptySubtext, children: "Drop files here or use the Upload button" })
-    ] });
+    return /* @__PURE__ */ jsxs(
+      "div",
+      {
+        className: styles6.listEmpty,
+        onClick: () => clearSelection(),
+        onContextMenu: handleBackgroundContextMenu,
+        children: [
+          /* @__PURE__ */ jsx(EmptyIcon, {}),
+          /* @__PURE__ */ jsx("span", { className: styles6.listEmptyText, children: "This folder is empty" }),
+          /* @__PURE__ */ jsx("span", { className: styles6.listEmptySubtext, children: "Drop files here or use the Upload button" })
+        ]
+      }
+    );
   }
-  return /* @__PURE__ */ jsxs("table", { className: styles6.table, children: [
-    /* @__PURE__ */ jsx("thead", { className: styles6.thead, children: /* @__PURE__ */ jsxs("tr", { className: styles6.headerRow, children: [
-      /* @__PURE__ */ jsx("th", { style: { width: 40, padding: "8px 12px" }, children: /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsxs("div", { className: styles6.fileListTable, role: "table", children: [
+    /* @__PURE__ */ jsx("div", { className: styles6.fileListHeader, role: "rowgroup", children: /* @__PURE__ */ jsxs("div", { className: styles6.fileListHeaderRow, role: "row", children: [
+      /* @__PURE__ */ jsx("div", { className: styles6.checkboxHeaderCell, role: "columnheader", children: /* @__PURE__ */ jsx(
         "input",
         {
           type: "checkbox",
@@ -1333,9 +1475,10 @@ function FileList({ files, onContextMenu }) {
           }
         }
       ) }),
-      /* @__PURE__ */ jsx("th", { children: /* @__PURE__ */ jsxs(
+      /* @__PURE__ */ jsx("div", { className: styles6.listNameHeaderCell, role: "columnheader", children: /* @__PURE__ */ jsxs(
         "button",
         {
+          type: "button",
           className: state.sortConfig.field === "name" ? styles6.headerCellActive : styles6.headerCell,
           onClick: () => handleSort("name"),
           children: [
@@ -1344,9 +1487,10 @@ function FileList({ files, onContextMenu }) {
           ]
         }
       ) }),
-      /* @__PURE__ */ jsx("th", { children: /* @__PURE__ */ jsxs(
+      /* @__PURE__ */ jsx("div", { className: styles6.listSizeHeaderCell, role: "columnheader", children: /* @__PURE__ */ jsxs(
         "button",
         {
+          type: "button",
           className: state.sortConfig.field === "size" ? styles6.headerCellActive : styles6.headerCell,
           onClick: () => handleSort("size"),
           children: [
@@ -1355,9 +1499,10 @@ function FileList({ files, onContextMenu }) {
           ]
         }
       ) }),
-      /* @__PURE__ */ jsx("th", { children: /* @__PURE__ */ jsxs(
+      /* @__PURE__ */ jsx("div", { className: styles6.listTypeHeaderCell, role: "columnheader", children: /* @__PURE__ */ jsxs(
         "button",
         {
+          type: "button",
           className: state.sortConfig.field === "type" ? styles6.headerCellActive : styles6.headerCell,
           onClick: () => handleSort("type"),
           children: [
@@ -1366,9 +1511,10 @@ function FileList({ files, onContextMenu }) {
           ]
         }
       ) }),
-      /* @__PURE__ */ jsx("th", { children: /* @__PURE__ */ jsxs(
+      /* @__PURE__ */ jsx("div", { className: styles6.listDateHeaderCell, role: "columnheader", children: /* @__PURE__ */ jsxs(
         "button",
         {
+          type: "button",
           className: state.sortConfig.field === "modifiedAt" ? styles6.headerCellActive : styles6.headerCell,
           onClick: () => handleSort("modifiedAt"),
           children: [
@@ -1378,12 +1524,14 @@ function FileList({ files, onContextMenu }) {
         }
       ) })
     ] }) }),
-    /* @__PURE__ */ jsx("tbody", { children: files.map((item) => {
+    /* @__PURE__ */ jsx("div", { className: styles6.fileListBody, role: "rowgroup", children: files.map((item) => {
       const isSelected = state.selectedItems.some((s) => s.id === item.id);
+      const rowClassName = isSelected ? `${styles6.fileListRow} ${styles6.fileListRowSelected}` : styles6.fileListRow;
       return /* @__PURE__ */ jsxs(
-        "tr",
+        "div",
         {
-          className: isSelected ? styles6.rowSelected : styles6.row,
+          className: rowClassName,
+          role: "row",
           onClick: (e) => handleClick(e, item),
           onDoubleClick: () => handleDoubleClick(item),
           onContextMenu: (e) => {
@@ -1392,7 +1540,7 @@ function FileList({ files, onContextMenu }) {
             onContextMenu(e, item);
           },
           children: [
-            /* @__PURE__ */ jsx("td", { className: styles6.cell, children: /* @__PURE__ */ jsx(
+            /* @__PURE__ */ jsx("div", { className: styles6.listCheckboxCell, role: "cell", children: /* @__PURE__ */ jsx(
               "input",
               {
                 type: "checkbox",
@@ -1402,13 +1550,13 @@ function FileList({ files, onContextMenu }) {
                 onClick: (e) => e.stopPropagation()
               }
             ) }),
-            /* @__PURE__ */ jsxs("td", { className: styles6.nameCell, children: [
+            /* @__PURE__ */ jsxs("div", { className: styles6.listNameCell, role: "cell", children: [
               getFileIcon(item, 18),
-              /* @__PURE__ */ jsx("span", { className: styles6.fileName, children: item.name })
+              /* @__PURE__ */ jsx("span", { className: styles6.listFileName, children: item.name })
             ] }),
-            /* @__PURE__ */ jsx("td", { className: styles6.sizeCell, children: item.isDirectory ? "\u2014" : formatFileSize(item.size) }),
-            /* @__PURE__ */ jsx("td", { className: styles6.typeCell, children: item.isDirectory ? "Folder" : getFileExtension(item.name).toUpperCase() || "\u2014" }),
-            /* @__PURE__ */ jsx("td", { className: styles6.dateCell, children: formatDate(item.modifiedAt) })
+            /* @__PURE__ */ jsx("div", { className: styles6.listSizeCell, role: "cell", children: item.isDirectory ? "\u2014" : formatFileSize(item.size) }),
+            /* @__PURE__ */ jsx("div", { className: styles6.listTypeCell, role: "cell", children: item.isDirectory ? "Folder" : getFileExtension(item.name).toUpperCase() || "\u2014" }),
+            /* @__PURE__ */ jsx("div", { className: styles6.listDateCell, role: "cell", children: formatDate(item.modifiedAt) })
           ]
         },
         item.id
@@ -1540,7 +1688,7 @@ function PreviewModal() {
   const [isSaving, setIsSaving] = useState(false);
   const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
   const [isSaveAs, setIsSaveAs] = useState(false);
-  const [saveAsName, setSaveAsName] = useState("");
+  const [saveAsBaseName, setSaveAsBaseName] = useState("");
   const [previewVersion, setPreviewVersion] = useState(0);
   useEffect(() => {
     if (!isImageEditorOpen) {
@@ -1574,9 +1722,23 @@ function PreviewModal() {
         setOriginalText(text);
       }).catch(() => setTextContent("Failed to load file content"));
     }
-    setSaveAsName(item.name);
+    setSaveAsBaseName(getFileBaseName(item.name));
   }, [item, adapter]);
   if (!item) return null;
+  const saveAsExtension = getFileExtension(item.name);
+  const getSaveAsFullName = (baseName) => saveAsExtension ? `${baseName}.${saveAsExtension}` : baseName;
+  const saveAsFullName = getSaveAsFullName(saveAsBaseName.trim());
+  const openSaveAs = () => {
+    setSaveAsBaseName(getFileBaseName(item.name));
+    setIsSaveAs(true);
+  };
+  const handleSaveAsBaseNameChange = (value) => {
+    let next = value.replace(/[/\\]/g, "");
+    if (saveAsExtension && next.toLowerCase().endsWith(`.${saveAsExtension}`)) {
+      next = next.slice(0, -(saveAsExtension.length + 1));
+    }
+    setSaveAsBaseName(next);
+  };
   const editorTheme = config.theme === "light" ? {
     palette: {
       "bg-primary": "#ffffff",
@@ -1706,12 +1868,28 @@ This will overwrite the existing file.`
     }
   };
   const handleSaveAsText = async () => {
-    if (!textContent || isSaving || !saveAsName) return;
+    if (!textContent || isSaving || !saveAsBaseName.trim()) return;
     setIsSaving(true);
     try {
       const parentPath = item.path.substring(0, item.path.lastIndexOf(item.name));
-      const newPath = parentPath + saveAsName;
+      const newPath = parentPath + saveAsFullName;
       await saveFileContent(newPath, textContent);
+      setIsSaveAs(false);
+      closeModal();
+    } catch (error) {
+      console.error("Save As failed", error);
+      alert("Failed to save file. Please try again.");
+      setIsSaving(false);
+    }
+  };
+  const handleSaveAsImage = async () => {
+    if (isSaving || !saveAsBaseName.trim()) return;
+    setIsSaving(true);
+    try {
+      const blob = await adapter.downloadFile(item.path);
+      const parentPath = item.path.substring(0, item.path.lastIndexOf(item.name));
+      const newPath = parentPath + saveAsFullName;
+      await saveFileContent(newPath, blob);
       setIsSaveAs(false);
       closeModal();
     } catch (error) {
@@ -1755,9 +1933,9 @@ This will overwrite the existing image.`
       } else {
         throw new Error("No editable image data returned from the editor");
       }
-      if (isSaveAs && saveAsName) {
+      if (isSaveAs && saveAsBaseName.trim()) {
         const parentPath = item.path.substring(0, item.path.lastIndexOf(item.name));
-        const newPath = parentPath + saveAsName;
+        const newPath = parentPath + saveAsFullName;
         await saveFileContent(newPath, blob);
         setIsSaveAs(false);
         closeModal();
@@ -1775,162 +1953,185 @@ This will overwrite the existing image.`
       setIsSaving(false);
     }
   };
-  return /* @__PURE__ */ jsx("div", { className: styles8.overlay, onMouseDown: (e) => {
-    if (e.target === e.currentTarget && !isImageEditorOpen) closeModal();
-  }, children: /* @__PURE__ */ jsxs(
+  return /* @__PURE__ */ jsx(
     "div",
     {
-      className: `${styles8.modalLarge} ${isImageEditorOpen ? styles8.modalEditor : ""}`,
-      onClick: (e) => e.stopPropagation(),
-      children: [
-        /* @__PURE__ */ jsxs("div", { className: styles8.modalHeader, children: [
-          /* @__PURE__ */ jsx("span", { className: styles8.modalTitle, children: isImageEditorOpen ? `Editing: ${item.name}` : `${item.name} ${isDirty ? "*" : ""}` }),
-          /* @__PURE__ */ jsx(
-            "button",
-            {
-              className: styles8.closeBtn,
-              onClick: isImageEditorOpen ? () => setIsImageEditorOpen(false) : closeModal,
-              title: isImageEditorOpen ? "Back to preview" : "Close",
-              children: /* @__PURE__ */ jsx(CloseIcon, { size: 18 })
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs(
-          "div",
-          {
-            className: `${styles8.modalBody} ${isImageEditorOpen ? styles8.modalBodyEditor : ""}`,
-            style: { display: "flex", flexDirection: "column" },
-            children: [
-              isSaveAs && !isImageEditorOpen && /* @__PURE__ */ jsxs("div", { className: styles8.inputGroup, style: { marginBottom: 16 }, children: [
-                /* @__PURE__ */ jsx("label", { className: styles8.inputLabel, children: "Save As Name:" }),
+      className: styles8.overlay,
+      style: isImageEditorOpen ? { pointerEvents: "none" } : void 0,
+      onMouseDown: (e) => {
+        if (e.target === e.currentTarget && !isImageEditorOpen) closeModal();
+      },
+      children: /* @__PURE__ */ jsxs(
+        "div",
+        {
+          className: `${styles8.modalLarge} ${isImageEditorOpen ? styles8.modalEditor : ""}`,
+          style: isImageEditorOpen ? { pointerEvents: "none" } : void 0,
+          onClick: (e) => e.stopPropagation(),
+          children: [
+            !isImageEditorOpen && /* @__PURE__ */ jsxs("div", { className: styles8.modalHeader, children: [
+              /* @__PURE__ */ jsx("span", { className: styles8.modalTitle, children: isSaveAs ? "Save As Name" : `${item.name} ${isDirty ? "*" : ""}` }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  className: styles8.closeBtn,
+                  onClick: closeModal,
+                  title: "Close",
+                  children: /* @__PURE__ */ jsx(CloseIcon, { size: 18 })
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxs(
+              "div",
+              {
+                className: `${styles8.modalBody} ${isImageEditorOpen ? styles8.modalBodyEditor : ""}`,
+                style: { display: "flex", flexDirection: "column" },
+                children: [
+                  isSaveAs && !isImageEditorOpen && /* @__PURE__ */ jsxs("div", { className: styles8.saveAsInputRow, children: [
+                    /* @__PURE__ */ jsx(
+                      "input",
+                      {
+                        autoFocus: true,
+                        "aria-label": "Save As Name",
+                        className: styles8.input,
+                        value: saveAsBaseName,
+                        onChange: (e) => handleSaveAsBaseNameChange(e.target.value)
+                      }
+                    ),
+                    saveAsExtension && /* @__PURE__ */ jsxs("span", { className: styles8.saveAsExtension, children: [
+                      ".",
+                      saveAsExtension
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ jsxs(
+                    "div",
+                    {
+                      className: `${styles8.previewContainer} ${isImageEditorOpen ? styles8.previewContainerEditor : ""}`,
+                      style: {
+                        flex: isSaveAs && isImage && !isImageEditorOpen ? "0 0 auto" : isImageEditorOpen ? "1 1 auto" : 1,
+                        minHeight: isImageEditorOpen ? 0 : isSaveAs && isImage ? 0 : 400,
+                        display: isSaveAs && isImage && !isImageEditorOpen ? "none" : void 0
+                      },
+                      children: [
+                        isImage && !isImageEditorOpen && !isSaveAs && /* @__PURE__ */ jsx("div", { className: styles8.imagePreviewWrapper, children: /* @__PURE__ */ jsx(
+                          "img",
+                          {
+                            src: previewUrl,
+                            alt: item.name,
+                            className: styles8.previewImage
+                          }
+                        ) }),
+                        isImageEditorOpen && /* @__PURE__ */ jsx(
+                          "div",
+                          {
+                            className: styles8.filerobotEditorHost,
+                            "data-fm-filerobot-editor": "true",
+                            style: { pointerEvents: "auto" },
+                            children: /* @__PURE__ */ jsx(
+                              FilerobotImageEditor,
+                              {
+                                source: previewUrl,
+                                theme: editorTheme,
+                                observePluginContainerSize: true,
+                                onSave: handleSaveImage,
+                                onClose: () => {
+                                  setIsImageEditorOpen(false);
+                                  setIsSaveAs(false);
+                                },
+                                closeAfterSave: true,
+                                annotationsCommon: {
+                                  fill: "#ff0000"
+                                },
+                                Text: { text: "Add Text" },
+                                savingPixelRatio: 1,
+                                previewPixelRatio: 1,
+                                defaultSavedImageName: isSaveAs ? saveAsFullName : item.name
+                              }
+                            )
+                          }
+                        ),
+                        isVideo && /* @__PURE__ */ jsx("video", { src: previewUrl, controls: true, className: styles8.previewVideo }),
+                        isAudio && /* @__PURE__ */ jsx("audio", { src: previewUrl, controls: true, className: styles8.previewAudio }),
+                        isPdf && /* @__PURE__ */ jsx("iframe", { src: previewUrl, className: styles8.previewIframe, title: item.name }),
+                        isText && /* @__PURE__ */ jsx("div", { className: styles8.editorWrapper, style: { width: "100%", height: "500px", border: "1px solid var(--fm-border)" }, children: /* @__PURE__ */ jsx(
+                          Editor,
+                          {
+                            height: "100%",
+                            defaultLanguage: getMonacoLanguage(ext),
+                            theme: "vs-dark",
+                            value: textContent,
+                            onChange: (val) => setTextContent(val || ""),
+                            options: {
+                              minimap: { enabled: false },
+                              fontSize: 14,
+                              wordWrap: "on"
+                            }
+                          }
+                        ) })
+                      ]
+                    }
+                  ),
+                  !isImageEditorOpen && !isSaveAs && /* @__PURE__ */ jsxs("div", { className: styles8.previewInfo, style: { marginTop: 16 }, children: [
+                    /* @__PURE__ */ jsx("span", { className: styles8.previewInfoLabel, children: "Size" }),
+                    /* @__PURE__ */ jsx("span", { className: styles8.previewInfoValue, children: formatFileSize(item.size) }),
+                    /* @__PURE__ */ jsx("span", { className: styles8.previewInfoLabel, children: "Path" }),
+                    /* @__PURE__ */ jsx("span", { className: styles8.previewInfoValue, children: item.path }),
+                    /* @__PURE__ */ jsx("span", { className: styles8.previewInfoLabel, children: "Modified" }),
+                    /* @__PURE__ */ jsx("span", { className: styles8.previewInfoValue, children: formatDate(item.modifiedAt) })
+                  ] })
+                ]
+              }
+            ),
+            !isImageEditorOpen && /* @__PURE__ */ jsxs("div", { className: styles8.modalFooter, children: [
+              isText && !isSaveAs && /* @__PURE__ */ jsxs(Fragment, { children: [
                 /* @__PURE__ */ jsx(
-                  "input",
+                  "button",
                   {
-                    autoFocus: true,
-                    className: styles8.input,
-                    value: saveAsName,
-                    onChange: (e) => setSaveAsName(e.target.value)
+                    className: styles8.btnPrimary,
+                    onClick: handleSaveText,
+                    disabled: !isDirty || isSaving,
+                    children: isSaving ? "Saving..." : "Save"
+                  }
+                ),
+                /* @__PURE__ */ jsx("button", { className: styles8.btn, onClick: openSaveAs, children: "Save As..." })
+              ] }),
+              isImage && !isSaveAs && /* @__PURE__ */ jsxs(Fragment, { children: [
+                /* @__PURE__ */ jsx("button", { className: styles8.btnPrimary, onClick: () => setIsImageEditorOpen(true), children: "Edit Image" }),
+                /* @__PURE__ */ jsx("button", { className: styles8.btn, onClick: openSaveAs, children: "Save As..." })
+              ] }),
+              isSaveAs && /* @__PURE__ */ jsxs(Fragment, { children: [
+                /* @__PURE__ */ jsx("button", { className: styles8.btn, onClick: () => setIsSaveAs(false), children: "Cancel" }),
+                /* @__PURE__ */ jsx("div", { style: { flex: 1 } }),
+                /* @__PURE__ */ jsx(
+                  "button",
+                  {
+                    className: styles8.btnPrimary,
+                    onClick: isText ? handleSaveAsText : handleSaveAsImage,
+                    disabled: isSaving || !saveAsBaseName.trim(),
+                    children: isSaving ? "Saving..." : "Save As"
                   }
                 )
               ] }),
-              /* @__PURE__ */ jsxs(
-                "div",
-                {
-                  className: `${styles8.previewContainer} ${isImageEditorOpen ? styles8.previewContainerEditor : ""}`,
-                  style: { flex: 1, minHeight: isImageEditorOpen ? "100%" : 400 },
-                  children: [
-                    isImage && !isImageEditorOpen && /* @__PURE__ */ jsx("div", { className: styles8.imagePreviewWrapper, children: /* @__PURE__ */ jsx(
-                      "img",
-                      {
-                        src: previewUrl,
-                        alt: item.name,
-                        className: styles8.previewImage
-                      }
-                    ) }),
-                    isImageEditorOpen && /* @__PURE__ */ jsx("div", { "data-fm-filerobot-editor": "true", children: /* @__PURE__ */ jsx(
-                      FilerobotImageEditor,
-                      {
-                        source: previewUrl,
-                        theme: editorTheme,
-                        onSave: handleSaveImage,
-                        onClose: () => {
-                          setIsImageEditorOpen(false);
-                          setIsSaveAs(false);
-                        },
-                        closeAfterSave: true,
-                        annotationsCommon: {
-                          fill: "#ff0000"
-                        },
-                        Text: { text: "Add Text" },
-                        savingPixelRatio: 1,
-                        previewPixelRatio: 1,
-                        defaultSavedImageName: isSaveAs ? saveAsName : item.name
-                      }
-                    ) }),
-                    isVideo && /* @__PURE__ */ jsx("video", { src: previewUrl, controls: true, className: styles8.previewVideo }),
-                    isAudio && /* @__PURE__ */ jsx("audio", { src: previewUrl, controls: true, className: styles8.previewAudio }),
-                    isPdf && /* @__PURE__ */ jsx("iframe", { src: previewUrl, className: styles8.previewIframe, title: item.name }),
-                    isText && /* @__PURE__ */ jsx("div", { className: styles8.editorWrapper, style: { width: "100%", height: "500px", border: "1px solid var(--fm-border)" }, children: /* @__PURE__ */ jsx(
-                      Editor,
-                      {
-                        height: "100%",
-                        defaultLanguage: getMonacoLanguage(ext),
-                        theme: "vs-dark",
-                        value: textContent,
-                        onChange: (val) => setTextContent(val || ""),
-                        options: {
-                          minimap: { enabled: false },
-                          fontSize: 14,
-                          wordWrap: "on"
-                        }
-                      }
-                    ) })
-                  ]
-                }
-              ),
-              !isImageEditorOpen && !isSaveAs && /* @__PURE__ */ jsxs("div", { className: styles8.previewInfo, style: { marginTop: 16 }, children: [
-                /* @__PURE__ */ jsx("span", { className: styles8.previewInfoLabel, children: "Size" }),
-                /* @__PURE__ */ jsx("span", { className: styles8.previewInfoValue, children: formatFileSize(item.size) }),
-                /* @__PURE__ */ jsx("span", { className: styles8.previewInfoLabel, children: "Path" }),
-                /* @__PURE__ */ jsx("span", { className: styles8.previewInfoValue, children: item.path }),
-                /* @__PURE__ */ jsx("span", { className: styles8.previewInfoLabel, children: "Modified" }),
-                /* @__PURE__ */ jsx("span", { className: styles8.previewInfoValue, children: formatDate(item.modifiedAt) })
+              !isSaveAs && /* @__PURE__ */ jsxs(Fragment, { children: [
+                /* @__PURE__ */ jsx("div", { style: { flex: 1 } }),
+                /* @__PURE__ */ jsx("button", { className: styles8.btn, onClick: closeModal, children: "Close" }),
+                /* @__PURE__ */ jsxs(
+                  "button",
+                  {
+                    className: styles8.btnPrimary,
+                    onClick: () => downloadFile(item),
+                    children: [
+                      /* @__PURE__ */ jsx(DownloadIcon, { size: 16 }),
+                      "Download"
+                    ]
+                  }
+                )
               ] })
-            ]
-          }
-        ),
-        !isImageEditorOpen && /* @__PURE__ */ jsxs("div", { className: styles8.modalFooter, children: [
-          isText && !isSaveAs && /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsx(
-              "button",
-              {
-                className: styles8.btnPrimary,
-                onClick: handleSaveText,
-                disabled: !isDirty || isSaving,
-                children: isSaving ? "Saving..." : "Save"
-              }
-            ),
-            /* @__PURE__ */ jsx("button", { className: styles8.btn, onClick: () => {
-              setSaveAsName(item.name);
-              setIsSaveAs(true);
-            }, children: "Save As..." })
-          ] }),
-          isImage && !isSaveAs && /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsx("button", { className: styles8.btnPrimary, onClick: () => setIsImageEditorOpen(true), children: "Edit Image" }),
-            /* @__PURE__ */ jsx("button", { className: styles8.btn, onClick: () => {
-              setSaveAsName(item.name);
-              setIsSaveAs(true);
-            }, children: "Save As..." })
-          ] }),
-          isSaveAs && /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsx("button", { className: styles8.btn, onClick: () => setIsSaveAs(false), children: "Cancel" }),
-            /* @__PURE__ */ jsx(
-              "button",
-              {
-                className: styles8.btnPrimary,
-                onClick: isText ? handleSaveAsText : () => setIsImageEditorOpen(true),
-                disabled: isSaving || !saveAsName,
-                children: isText ? "Confirm Save As" : "Edit & Save As"
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsx("div", { style: { flex: 1 } }),
-          /* @__PURE__ */ jsx("button", { className: styles8.btn, onClick: closeModal, children: "Close" }),
-          !isSaveAs && /* @__PURE__ */ jsxs(
-            "button",
-            {
-              className: styles8.btnPrimary,
-              onClick: () => downloadFile(item),
-              children: [
-                /* @__PURE__ */ jsx(DownloadIcon, { size: 16 }),
-                "Download"
-              ]
-            }
-          )
-        ] })
-      ]
+            ] })
+          ]
+        }
+      )
     }
-  ) });
+  );
 }
 
 // src/components/Sidebar/Sidebar.module.css
@@ -2046,6 +2247,7 @@ var styles10 = Object.keys(Toolbar_default).length > 0 ? Toolbar_default : {
   viewToggle: "viewToggle",
   viewToggleBtn: "viewToggleBtn",
   viewToggleBtnActive: "viewToggleBtnActive",
+  toolbarCloseBtn: "toolbarCloseBtn",
   categoryFilter: "categoryFilter",
   categoryBtn: "categoryBtn",
   categoryBtnActive: "categoryBtnActive"
@@ -2247,17 +2449,45 @@ function Toolbar() {
           children: /* @__PURE__ */ jsx(ListViewIcon, { size: 16 })
         }
       )
-    ] })
+    ] }),
+    config.onClose && /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        className: styles10.toolbarCloseBtn,
+        onClick: config.onClose,
+        title: "Close",
+        "aria-label": "Close",
+        children: /* @__PURE__ */ jsx(CloseIcon, { size: 16 })
+      }
+    )
   ] });
 }
 var styles11 = Object.keys(Modals_default).length > 0 ? Modals_default : modalClassNames;
 function UploadModal() {
-  const { state, config, uploadFiles, closeModal } = useFileManager();
+  const { state, config, uploadFiles, closeModal, clearUploadProgress } = useFileManager();
   const [files, setFiles] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [rejectedFiles, setRejectedFiles] = useState([]);
   const fileInputRef = useRef(null);
   const isUploading = state.uploadProgress.some((p) => p.status === "uploading");
+  const hasUploadError = state.uploadProgress.some((p) => p.status === "error");
+  useEffect(() => {
+    return () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    };
+  }, []);
+  const handleClose = () => {
+    setFiles([]);
+    setRejectedFiles([]);
+    setIsDragOver(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    closeModal();
+  };
   const category = config.initialCategory || "all";
   const acceptAttribute = getAcceptForCategory(category);
   const hasRestriction = category !== "all";
@@ -2281,11 +2511,13 @@ function UploadModal() {
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     setIsDragOver(false);
+    clearUploadProgress();
     const droppedFiles = Array.from(e.dataTransfer.files);
     const filteredFiles = filterFilesByCategory(droppedFiles);
     setFiles((prev) => [...prev, ...filteredFiles]);
-  }, [hasRestriction, category]);
+  }, [hasRestriction, category, clearUploadProgress]);
   const handleFileSelect = (e) => {
+    clearUploadProgress();
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
       const filteredFiles = filterFilesByCategory(selectedFiles);
@@ -2296,14 +2528,17 @@ function UploadModal() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
   const handleUpload = async () => {
-    if (files.length === 0) return;
+    if (files.length === 0 || hasUploadError) return;
     await uploadFiles(files);
     setFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
-  return /* @__PURE__ */ jsx("div", { className: styles11.overlay, onClick: closeModal, children: /* @__PURE__ */ jsxs("div", { className: styles11.modalLarge, onClick: (e) => e.stopPropagation(), children: [
+  return /* @__PURE__ */ jsx("div", { className: styles11.overlay, onClick: handleClose, children: /* @__PURE__ */ jsxs("div", { className: styles11.modalLarge, onClick: (e) => e.stopPropagation(), children: [
     /* @__PURE__ */ jsxs("div", { className: styles11.modalHeader, children: [
       /* @__PURE__ */ jsx("span", { className: styles11.modalTitle, children: "Upload Files" }),
-      /* @__PURE__ */ jsx("button", { className: styles11.closeBtn, onClick: closeModal, children: /* @__PURE__ */ jsx(CloseIcon, { size: 18 }) })
+      /* @__PURE__ */ jsx("button", { className: styles11.closeBtn, onClick: handleClose, children: /* @__PURE__ */ jsx(CloseIcon, { size: 18 }) })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: styles11.modalBody, children: [
       /* @__PURE__ */ jsxs(
@@ -2364,6 +2599,7 @@ function UploadModal() {
         /* @__PURE__ */ jsxs("div", { className: styles11.fileQueueInfo, children: [
           /* @__PURE__ */ jsx("div", { className: styles11.fileQueueName, children: p.file.name }),
           /* @__PURE__ */ jsx("div", { className: styles11.fileQueueSize, children: formatFileSize(p.file.size) }),
+          p.status === "error" && p.error && /* @__PURE__ */ jsx("div", { className: styles11.fileQueueError, children: p.error }),
           /* @__PURE__ */ jsx("div", { className: styles11.progressBar, children: /* @__PURE__ */ jsx(
             "div",
             {
@@ -2372,7 +2608,16 @@ function UploadModal() {
             }
           ) })
         ] }),
-        /* @__PURE__ */ jsx("span", { className: styles11.statusIcon, children: p.status === "success" ? "\u2713" : p.status === "error" ? "\u2715" : "" })
+        /* @__PURE__ */ jsx("span", { className: styles11.statusIcon, children: p.status === "success" ? "\u2713" : p.status === "error" ? "\u2715" : "" }),
+        p.status === "error" && /* @__PURE__ */ jsx(
+          "button",
+          {
+            className: styles11.fileQueueRemove,
+            onClick: clearUploadProgress,
+            title: "Dismiss error",
+            children: /* @__PURE__ */ jsx(CloseIcon, { size: 14 })
+          }
+        )
       ] }, idx)) : files.map((file, idx) => /* @__PURE__ */ jsxs("div", { className: styles11.fileQueueItem, children: [
         getFileIcon({ isDirectory: false, mimeType: file.type, name: file.name }, 20),
         /* @__PURE__ */ jsxs("div", { className: styles11.fileQueueInfo, children: [
@@ -2390,13 +2635,13 @@ function UploadModal() {
       ] }, idx)) })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: styles11.modalFooter, children: [
-      /* @__PURE__ */ jsx("button", { className: styles11.btn, onClick: closeModal, children: "Cancel" }),
+      /* @__PURE__ */ jsx("button", { className: styles11.btn, onClick: handleClose, children: "Cancel" }),
       /* @__PURE__ */ jsxs(
         "button",
         {
           className: styles11.btnPrimary,
           onClick: handleUpload,
-          disabled: files.length === 0 || isUploading,
+          disabled: files.length === 0 || isUploading || hasUploadError,
           children: [
             /* @__PURE__ */ jsx(UploadIcon, { size: 16 }),
             isUploading ? "Uploading..." : `Upload ${files.length > 0 ? `(${files.length})` : ""}`
@@ -2459,19 +2704,26 @@ function FileManagerInner() {
         }
       }
       if (e.key === "Delete" && state.selectedItems.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         openModal("delete");
+        return;
       }
       if (e.key === "F2" && state.selectedItems.length === 1) {
         e.preventDefault();
+        e.stopPropagation();
         openModal("rename");
+        return;
       }
       if (e.key === "F5") {
         e.preventDefault();
+        e.stopPropagation();
         refreshFiles();
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [state.selectedItems, selectAll, copyItems, cutItems, pasteItems, openModal, refreshFiles, deleteItems]);
   const hideSystemFiles = (_a = config.hideSystemFiles) != null ? _a : true;
   const sortedFiles = sortFiles(state.files, state.sortConfig);
@@ -2511,9 +2763,9 @@ function FileManagerInner() {
             {
               className: styles12.contentArea,
               onContextMenu: (e) => {
-                if (e.target === e.currentTarget) {
-                  handleContextMenu(e);
-                }
+                if (e.target !== e.currentTarget) return;
+                e.preventDefault();
+                handleContextMenu(e);
               },
               children: state.viewMode === "grid" ? /* @__PURE__ */ jsx(FileGrid, { files: processedFiles, onContextMenu: handleContextMenu }) : /* @__PURE__ */ jsx(FileList, { files: processedFiles, onContextMenu: handleContextMenu })
             }
@@ -2562,11 +2814,11 @@ var RestAdapter = class {
     if (!res.ok) throw new Error("Failed to create folder");
     return res.json();
   }
-  async deleteItems(paths) {
+  async deleteItems(targets) {
     const res = await fetch(this.baseUrl, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paths })
+      body: JSON.stringify({ paths: targets.map((t) => t.path) })
     });
     if (!res.ok) throw new Error("Failed to delete items");
   }
@@ -2663,14 +2915,27 @@ var RestAdapter = class {
     return res.json();
   }
 };
+var FOLDER_PLACEHOLDER_CONTENT = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>';
+var FOLDER_PLACEHOLDER_MIME = "image/svg+xml";
+var FOLDER_PLACEHOLDER_FILE = ".folderkeep";
+var FOLDER_MARKER_FILES = [
+  FOLDER_PLACEHOLDER_FILE,
+  ".emptyFolderPlaceholder",
+  ".gitkeep"
+];
+function isStorageFolder(item) {
+  return item.id == null;
+}
 var SupabaseAdapter = class {
   constructor(config) {
-    this.supabase = createClient(config.url, config.anonKey);
+    var _a;
+    this.supabase = (_a = config.supabase) != null ? _a : createClient(config.url, config.anonKey);
     this.bucketName = config.bucketName;
   }
   async listFiles(path) {
-    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-    const { data, error } = await this.supabase.storage.from(this.bucketName).list(normalizedPath, {
+    const storagePath = toStoragePath(path);
+    const parentPath = normalizeManagerPath(path);
+    const { data, error } = await this.supabase.storage.from(this.bucketName).list(storagePath, {
       limit: 1e3,
       sortBy: { column: "name", order: "asc" }
     });
@@ -2680,32 +2945,37 @@ var SupabaseAdapter = class {
     }
     return (data || []).map((item) => {
       var _a, _b;
-      const fullPath = normalizedPath ? `/${normalizedPath}/${item.name}` : `/${item.name}`;
+      const fullPath = storagePath ? normalizeManagerPath(`${storagePath}/${item.name}`) : normalizeManagerPath(`/${item.name}`);
       return {
         id: item.id || fullPath,
         name: item.name,
-        isDirectory: !item.metadata,
+        isDirectory: isStorageFolder(item),
         size: ((_a = item.metadata) == null ? void 0 : _a.size) || 0,
         mimeType: ((_b = item.metadata) == null ? void 0 : _b.mimetype) || "application/octet-stream",
         path: fullPath,
-        parentPath: `/${normalizedPath}`,
+        parentPath,
         createdAt: item.created_at || (/* @__PURE__ */ new Date()).toISOString(),
         modifiedAt: item.updated_at || item.created_at || (/* @__PURE__ */ new Date()).toISOString(),
-        thumbnailUrl: item.metadata ? this.getPreviewUrl(fullPath) : void 0
+        thumbnailUrl: isStorageFolder(item) ? void 0 : this.getPreviewUrl(fullPath)
       };
     });
   }
   async createFolder(path, name) {
-    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-    const folderPath = normalizedPath ? `${normalizedPath}/${name}/.folderkeep` : `${name}/.folderkeep`;
-    const { error } = await this.supabase.storage.from(this.bucketName).upload(folderPath, new Blob([""], { type: "text/plain" }), {
-      contentType: "text/plain",
-      upsert: false
-    });
+    const storagePath = toStoragePath(path);
+    const folderPath = storagePath ? `${storagePath}/${name}/${FOLDER_PLACEHOLDER_FILE}` : `${name}/${FOLDER_PLACEHOLDER_FILE}`;
+    const { error } = await this.supabase.storage.from(this.bucketName).upload(
+      folderPath,
+      new Blob([FOLDER_PLACEHOLDER_CONTENT], { type: FOLDER_PLACEHOLDER_MIME }),
+      {
+        contentType: FOLDER_PLACEHOLDER_MIME,
+        upsert: false
+      }
+    );
     if (error) {
       throw new Error(`Failed to create folder: ${error.message}`);
     }
-    const fullPath = normalizedPath ? `/${normalizedPath}/${name}` : `/${name}`;
+    const fullPath = storagePath ? normalizeManagerPath(`${storagePath}/${name}`) : normalizeManagerPath(`/${name}`);
+    const parentPath = normalizeManagerPath(path);
     return {
       id: fullPath,
       name,
@@ -2713,16 +2983,75 @@ var SupabaseAdapter = class {
       size: 0,
       mimeType: "application/folder",
       path: fullPath,
-      parentPath: `/${normalizedPath}`,
+      parentPath,
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
       modifiedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
   }
-  async deleteItems(paths) {
-    const normalizedPaths = paths.map((p) => p.startsWith("/") ? p.slice(1) : p);
-    const { error } = await this.supabase.storage.from(this.bucketName).remove(normalizedPaths);
-    if (error) {
-      throw new Error(`Failed to delete items: ${error.message}`);
+  async deleteItems(targets) {
+    for (const target of targets) {
+      const storagePath = toStoragePath(target.path);
+      if (target.isDirectory) {
+        await this.deleteFolder(storagePath);
+      } else if (storagePath) {
+        await this.removeStorageObjects([storagePath]);
+      }
+    }
+  }
+  async deleteFolder(storagePath) {
+    const pathsToDelete = /* @__PURE__ */ new Set();
+    for (const marker of FOLDER_MARKER_FILES) {
+      pathsToDelete.add(`${storagePath}/${marker}`);
+    }
+    await this.collectFilePathsUnderPrefix(storagePath, pathsToDelete);
+    await this.removeStorageObjects([...pathsToDelete]);
+  }
+  async collectFilePathsUnderPrefix(prefix, paths) {
+    let offset = 0;
+    const limit = 100;
+    while (true) {
+      const { data: items, error } = await this.supabase.storage.from(this.bucketName).list(prefix, {
+        limit,
+        offset,
+        sortBy: { column: "name", order: "asc" }
+      });
+      if (error || !items || items.length === 0) {
+        break;
+      }
+      for (const item of items) {
+        const childPath = prefix ? `${prefix}/${item.name}` : item.name;
+        if (isStorageFolder(item)) {
+          for (const marker of FOLDER_MARKER_FILES) {
+            paths.add(`${childPath}/${marker}`);
+          }
+          await this.collectFilePathsUnderPrefix(childPath, paths);
+        } else {
+          paths.add(childPath);
+        }
+      }
+      if (items.length < limit) {
+        break;
+      }
+      offset += limit;
+    }
+  }
+  normalizeObjectKey(objectPath) {
+    return objectPath.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\//, "");
+  }
+  async removeStorageObjects(paths) {
+    const normalized = [
+      ...new Set(paths.map((p) => this.normalizeObjectKey(p)).filter(Boolean))
+    ];
+    if (normalized.length === 0) {
+      return;
+    }
+    const batchSize = 100;
+    for (let i = 0; i < normalized.length; i += batchSize) {
+      const batch = normalized.slice(i, i + batchSize);
+      const { error } = await this.supabase.storage.from(this.bucketName).remove(batch);
+      if (error) {
+        throw new Error(`Failed to delete items: ${error.message}`);
+      }
     }
   }
   async renameItem(path, newName) {
@@ -2756,11 +3085,11 @@ var SupabaseAdapter = class {
     return {
       id: item.id || `/${newPath}`,
       name: item.name,
-      isDirectory: !item.metadata,
+      isDirectory: isStorageFolder(item),
       size: ((_a = item.metadata) == null ? void 0 : _a.size) || 0,
       mimeType: ((_b = item.metadata) == null ? void 0 : _b.mimetype) || "application/octet-stream",
-      path: `/${newPath}`,
-      parentPath: `/${parentPath}`,
+      path: normalizeManagerPath(`/${newPath}`),
+      parentPath: normalizeManagerPath(`/${parentPath}`),
       createdAt: item.created_at || (/* @__PURE__ */ new Date()).toISOString(),
       modifiedAt: item.updated_at || item.created_at || (/* @__PURE__ */ new Date()).toISOString()
     };
@@ -2790,11 +3119,12 @@ var SupabaseAdapter = class {
     }
   }
   async uploadFiles(path, files, onProgress) {
-    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+    const storagePath = toStoragePath(path);
     const uploadedItems = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const filePath = normalizedPath ? `${normalizedPath}/${file.name}` : file.name;
+      const safeName = sanitizeStorageFileName(file.name);
+      const filePath = storagePath ? `${storagePath}/${safeName}` : safeName;
       if (onProgress) {
         onProgress(
           files.map((f, idx) => ({
@@ -2822,13 +3152,13 @@ var SupabaseAdapter = class {
         throw new Error(`Failed to upload ${file.name}: ${error.message}`);
       }
       uploadedItems.push({
-        id: `/${filePath}`,
-        name: file.name,
+        id: normalizeManagerPath(`/${filePath}`),
+        name: safeName,
         isDirectory: false,
         size: file.size,
         mimeType: file.type,
-        path: `/${filePath}`,
-        parentPath: `/${normalizedPath}`,
+        path: normalizeManagerPath(`/${filePath}`),
+        parentPath: normalizeManagerPath(path),
         createdAt: (/* @__PURE__ */ new Date()).toISOString(),
         modifiedAt: (/* @__PURE__ */ new Date()).toISOString(),
         thumbnailUrl: this.getPreviewUrl(`/${filePath}`)
@@ -2854,65 +3184,67 @@ var SupabaseAdapter = class {
     return data;
   }
   async saveFileContent(path, content) {
-    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+    const storagePath = toStoragePath(path);
     let blob;
     if (typeof content === "string") {
       blob = new Blob([content], { type: "text/plain" });
     } else {
       blob = content;
     }
-    const { error } = await this.supabase.storage.from(this.bucketName).upload(normalizedPath, blob, {
+    await this.supabase.storage.from(this.bucketName).remove([storagePath]);
+    const { error } = await this.supabase.storage.from(this.bucketName).upload(storagePath, blob, {
       contentType: blob.type || "application/octet-stream",
-      upsert: true
+      upsert: false
     });
     if (error) {
       throw new Error(`Failed to save file: ${error.message}`);
     }
-    const fileName = normalizedPath.split("/").pop() || "file";
-    const parentPath = normalizedPath.substring(0, normalizedPath.lastIndexOf("/"));
+    const fileName = storagePath.split("/").pop() || "file";
+    const parentPath = storagePath.substring(0, storagePath.lastIndexOf("/"));
     return {
-      id: `/${normalizedPath}`,
+      id: normalizeManagerPath(`/${storagePath}`),
       name: fileName,
       isDirectory: false,
       size: blob.size,
       mimeType: blob.type || "application/octet-stream",
-      path: `/${normalizedPath}`,
-      parentPath: `/${parentPath}`,
+      path: normalizeManagerPath(`/${storagePath}`),
+      parentPath: parentPath ? normalizeManagerPath(`/${parentPath}`) : "/",
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
       modifiedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
   }
   getPreviewUrl(path) {
-    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-    const { data } = this.supabase.storage.from(this.bucketName).getPublicUrl(normalizedPath);
+    const storagePath = toStoragePath(path);
+    const { data } = this.supabase.storage.from(this.bucketName).getPublicUrl(storagePath);
     return data.publicUrl;
   }
   getDownloadUrl(path) {
     return this.getPreviewUrl(path);
   }
   async search(path, query) {
-    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-    const { data, error } = await this.supabase.storage.from(this.bucketName).list(normalizedPath, {
+    const storagePath = toStoragePath(path);
+    const { data, error } = await this.supabase.storage.from(this.bucketName).list(storagePath, {
       limit: 1e3,
       search: query
     });
     if (error) {
       throw new Error(`Failed to search: ${error.message}`);
     }
+    const parentPath = normalizeManagerPath(path);
     return (data || []).map((item) => {
       var _a, _b;
-      const fullPath = normalizedPath ? `/${normalizedPath}/${item.name}` : `/${item.name}`;
+      const fullPath = storagePath ? normalizeManagerPath(`${storagePath}/${item.name}`) : normalizeManagerPath(`/${item.name}`);
       return {
         id: item.id || fullPath,
         name: item.name,
-        isDirectory: !item.metadata,
+        isDirectory: isStorageFolder(item),
         size: ((_a = item.metadata) == null ? void 0 : _a.size) || 0,
         mimeType: ((_b = item.metadata) == null ? void 0 : _b.mimetype) || "application/octet-stream",
         path: fullPath,
-        parentPath: `/${normalizedPath}`,
+        parentPath,
         createdAt: item.created_at || (/* @__PURE__ */ new Date()).toISOString(),
         modifiedAt: item.updated_at || item.created_at || (/* @__PURE__ */ new Date()).toISOString(),
-        thumbnailUrl: item.metadata ? this.getPreviewUrl(fullPath) : void 0
+        thumbnailUrl: isStorageFolder(item) ? void 0 : this.getPreviewUrl(fullPath)
       };
     });
   }

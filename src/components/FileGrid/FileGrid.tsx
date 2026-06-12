@@ -18,7 +18,7 @@ const styles = Object.keys(stylesModule).length > 0
         gridItemSelected: 'gridItemSelected',
         iconWrapper: 'iconWrapper',
         thumbnail: 'thumbnail',
-        fileName: 'fileName',
+        gridFileName: 'gridFileName',
         fileMeta: 'fileMeta',
     };
 
@@ -58,9 +58,18 @@ export function FileGrid({ files, onContextMenu }: FileGridProps) {
         clearSelection();
     };
 
+    const handleBackgroundContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        onContextMenu(e);
+    };
+
     if (files.length === 0) {
         return (
-            <div className={styles.empty} onClick={handleBackgroundClick}>
+            <div
+                className={styles.empty}
+                onClick={handleBackgroundClick}
+                onContextMenu={handleBackgroundContextMenu}
+            >
                 <EmptyIcon />
                 <span className={styles.emptyText}>This folder is empty</span>
                 <span className={styles.emptySubtext}>
@@ -110,7 +119,7 @@ export function FileGrid({ files, onContextMenu }: FileGridProps) {
                                 getFileIcon(item, 42)
                             )}
                         </div>
-                        <span className={styles.fileName} title={item.name}>
+                        <span className={styles.gridFileName} title={item.name}>
                             {truncateFileName(item.name, 15)}
                         </span>
                         {!item.isDirectory && (

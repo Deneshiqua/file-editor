@@ -3,7 +3,7 @@
 import { CloseIcon, DownloadIcon } from '@/components/Icons/Icons';
 import Editor, { useMonaco } from '@monaco-editor/react';
 import React, { useEffect, useRef, useState } from 'react';
-import { formatDate, formatFileSize, getFileExtension } from '@/utils/helpers';
+import { formatDate, formatFileSize, getFileBaseName, getFileExtension } from '@/utils/helpers';
 
 import dynamic from 'next/dynamic';
 import stylesModule from './Modals.module.css';
@@ -51,7 +51,7 @@ export function PreviewModal() {
 
     // Rename/SaveAs State
     const [isSaveAs, setIsSaveAs] = useState(false);
-    const [saveAsName, setSaveAsName] = useState('');
+    const [saveAsBaseName, setSaveAsBaseName] = useState('');
     const [previewVersion, setPreviewVersion] = useState(0);
 
     useEffect(() => {
@@ -105,10 +105,30 @@ export function PreviewModal() {
                 .catch(() => setTextContent('Failed to load file content'));
         }
 
-        setSaveAsName(item.name);
+        setSaveAsBaseName(getFileBaseName(item.name));
     }, [item, adapter]);
 
     if (!item) return null;
+
+    const saveAsExtension = getFileExtension(item.name);
+    const getSaveAsFullName = (baseName: string) =>
+        saveAsExtension ? `${baseName}.${saveAsExtension}` : baseName;
+    const saveAsFullName = getSaveAsFullName(saveAsBaseName.trim());
+
+    const openSaveAs = () => {
+        setSaveAsBaseName(getFileBaseName(item.name));
+        setIsSaveAs(true);
+    };
+
+    const handleSaveAsBaseNameChange = (value: string) => {
+        let next = value.replace(/[/\\]/g, '');
+
+        if (saveAsExtension && next.toLowerCase().endsWith(`.${saveAsExtension}`)) {
+            next = next.slice(0, -(saveAsExtension.length + 1));
+        }
+
+        setSaveAsBaseName(next);
+    };
 
     const editorTheme = config.theme === 'light'
         ? {
@@ -247,17 +267,34 @@ export function PreviewModal() {
     };
 
     const handleSaveAsText = async () => {
-        if (!textContent || isSaving || !saveAsName) return;
+        if (!textContent || isSaving || !saveAsBaseName.trim()) return;
         setIsSaving(true);
         try {
             // Determine parent path
             const parentPath = item.path.substring(0, item.path.lastIndexOf(item.name));
-            const newPath = parentPath + saveAsName;
+            const newPath = parentPath + saveAsFullName;
             await saveFileContent(newPath, textContent);
             setIsSaveAs(false);
             closeModal();
         } catch (error) {
             console.error("Save As failed", error);
+            alert('Failed to save file. Please try again.');
+            setIsSaving(false);
+        }
+    };
+
+    const handleSaveAsImage = async () => {
+        if (isSaving || !saveAsBaseName.trim()) return;
+        setIsSaving(true);
+        try {
+            const blob = await adapter.downloadFile(item.path);
+            const parentPath = item.path.substring(0, item.path.lastIndexOf(item.name));
+            const newPath = parentPath + saveAsFullName;
+            await saveFileContent(newPath, blob);
+            setIsSaveAs(false);
+            closeModal();
+        } catch (error) {
+            console.error('Save As failed', error);
             alert('Failed to save file. Please try again.');
             setIsSaving(false);
         }
@@ -303,9 +340,9 @@ export function PreviewModal() {
             }
 
             // If it's a "Save As" operation
-            if (isSaveAs && saveAsName) {
+            if (isSaveAs && saveAsBaseName.trim()) {
                 const parentPath = item.path.substring(0, item.path.lastIndexOf(item.name));
-                const newPath = parentPath + saveAsName;
+                const newPath = parentPath + saveAsFullName;
                 await saveFileContent(newPath, blob);
                 setIsSaveAs(false);
                 closeModal();
@@ -325,27 +362,35 @@ export function PreviewModal() {
     };
 
     return (
-        <div className={styles.overlay} onMouseDown={(e) => {
+        <div
+            className={styles.overlay}
+            style={isImageEditorOpen ? { pointerEvents: 'none' } : undefined}
+            onMouseDown={(e) => {
             // Only close if clicking the actual overlay, not Filerobot which renders portals
             if (e.target === e.currentTarget && !isImageEditorOpen) closeModal();
         }}>
             <div
                 className={`${styles.modalLarge} ${isImageEditorOpen ? styles.modalEditor : ''}`}
+                style={isImageEditorOpen ? { pointerEvents: 'none' } : undefined}
                 onClick={(e) => e.stopPropagation()}
             >
 
-                <div className={styles.modalHeader}>
-                    <span className={styles.modalTitle}>
-                        {isImageEditorOpen ? `Editing: ${item.name}` : `${item.name} ${isDirty ? '*' : ''}`}
-                    </span>
-                    <button
-                        className={styles.closeBtn}
-                        onClick={isImageEditorOpen ? () => setIsImageEditorOpen(false) : closeModal}
-                        title={isImageEditorOpen ? 'Back to preview' : 'Close'}
-                    >
-                        <CloseIcon size={18} />
-                    </button>
-                </div>
+                {!isImageEditorOpen && (
+                    <div className={styles.modalHeader}>
+                        <span className={styles.modalTitle}>
+                            {isSaveAs
+                                ? 'Save As Name'
+                                : `${item.name} ${isDirty ? '*' : ''}`}
+                        </span>
+                        <button
+                            className={styles.closeBtn}
+                            onClick={closeModal}
+                            title="Close"
+                        >
+                            <CloseIcon size={18} />
+                        </button>
+                    </div>
+                )}
 
                 <div
                     className={`${styles.modalBody} ${isImageEditorOpen ? styles.modalBodyEditor : ''}`}
@@ -353,22 +398,29 @@ export function PreviewModal() {
                 >
 
                     {isSaveAs && !isImageEditorOpen && (
-                        <div className={styles.inputGroup} style={{ marginBottom: 16 }}>
-                            <label className={styles.inputLabel}>Save As Name:</label>
+                        <div className={styles.saveAsInputRow}>
                             <input
                                 autoFocus
+                                aria-label="Save As Name"
                                 className={styles.input}
-                                value={saveAsName}
-                                onChange={(e) => setSaveAsName(e.target.value)}
+                                value={saveAsBaseName}
+                                onChange={(e) => handleSaveAsBaseNameChange(e.target.value)}
                             />
+                            {saveAsExtension && (
+                                <span className={styles.saveAsExtension}>.{saveAsExtension}</span>
+                            )}
                         </div>
                     )}
 
                     <div
                         className={`${styles.previewContainer} ${isImageEditorOpen ? styles.previewContainerEditor : ''}`}
-                        style={{ flex: 1, minHeight: isImageEditorOpen ? '100%' : 400 }}
+                        style={{
+                            flex: isSaveAs && isImage && !isImageEditorOpen ? '0 0 auto' : isImageEditorOpen ? '1 1 auto' : 1,
+                            minHeight: isImageEditorOpen ? 0 : isSaveAs && isImage ? 0 : 400,
+                            display: isSaveAs && isImage && !isImageEditorOpen ? 'none' : undefined,
+                        }}
                     >
-                        {isImage && !isImageEditorOpen && (
+                        {isImage && !isImageEditorOpen && !isSaveAs && (
                             <div className={styles.imagePreviewWrapper}>
                                 <img
                                     src={previewUrl}
@@ -379,10 +431,15 @@ export function PreviewModal() {
                         )}
 
                         {isImageEditorOpen && (
-                            <div data-fm-filerobot-editor="true">
+                            <div
+                                className={styles.filerobotEditorHost}
+                                data-fm-filerobot-editor="true"
+                                style={{ pointerEvents: 'auto' }}
+                            >
                                 <FilerobotImageEditor
                                     source={previewUrl}
                                     theme={editorTheme}
+                                    observePluginContainerSize={true}
                                     onSave={handleSaveImage}
                                     onClose={() => {
                                         setIsImageEditorOpen(false);
@@ -395,7 +452,7 @@ export function PreviewModal() {
                                     Text={{ text: 'Add Text' }}
                                     savingPixelRatio={1}
                                     previewPixelRatio={1}
-                                    defaultSavedImageName={isSaveAs ? saveAsName : item.name}
+                                    defaultSavedImageName={isSaveAs ? saveAsFullName : item.name}
                                 />
                             </div>
                         )}
@@ -453,10 +510,7 @@ export function PreviewModal() {
                                 >
                                     {isSaving ? 'Saving...' : 'Save'}
                                 </button>
-                                <button className={styles.btn} onClick={() => {
-                                    setSaveAsName(item.name);
-                                    setIsSaveAs(true);
-                                }}>
+                                <button className={styles.btn} onClick={openSaveAs}>
                                     Save As...
                                 </button>
                             </>
@@ -467,10 +521,7 @@ export function PreviewModal() {
                                 <button className={styles.btnPrimary} onClick={() => setIsImageEditorOpen(true)}>
                                     Edit Image
                                 </button>
-                                <button className={styles.btn} onClick={() => {
-                                    setSaveAsName(item.name);
-                                    setIsSaveAs(true);
-                                }}>
+                                <button className={styles.btn} onClick={openSaveAs}>
                                     Save As...
                                 </button>
                             </>
@@ -482,29 +533,32 @@ export function PreviewModal() {
                                 <button className={styles.btn} onClick={() => setIsSaveAs(false)}>
                                     Cancel
                                 </button>
+                                <div style={{ flex: 1 }} />
                                 <button
                                     className={styles.btnPrimary}
-                                    onClick={isText ? handleSaveAsText : () => setIsImageEditorOpen(true)}
-                                    disabled={isSaving || !saveAsName}
+                                    onClick={isText ? handleSaveAsText : handleSaveAsImage}
+                                    disabled={isSaving || !saveAsBaseName.trim()}
                                 >
-                                    {isText ? 'Confirm Save As' : 'Edit & Save As'}
+                                    {isSaving ? 'Saving...' : 'Save As'}
                                 </button>
                             </>
                         )}
 
-                        <div style={{ flex: 1 }}></div>
-
-                        <button className={styles.btn} onClick={closeModal}>
-                            Close
-                        </button>
                         {!isSaveAs && (
-                            <button
-                                className={styles.btnPrimary}
-                                onClick={() => downloadFile(item)}
-                            >
-                                <DownloadIcon size={16} />
-                                Download
-                            </button>
+                            <>
+                                <div style={{ flex: 1 }} />
+
+                                <button className={styles.btn} onClick={closeModal}>
+                                    Close
+                                </button>
+                                <button
+                                    className={styles.btnPrimary}
+                                    onClick={() => downloadFile(item)}
+                                >
+                                    <DownloadIcon size={16} />
+                                    Download
+                                </button>
+                            </>
                         )}
                     </div>
                 )}

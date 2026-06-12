@@ -21,6 +21,11 @@ export interface FileItem {
   modifiedAt: string;
 }
 
+export interface DeleteItemTarget {
+  path: string;
+  isDirectory: boolean;
+}
+
 export interface SortConfig {
   field: SortField;
   order: SortOrder;
@@ -73,6 +78,7 @@ export interface FileManagerConfig {
   selectionMode?: boolean;
   multiSelect?: boolean;
   onFileSelect?: (files: FileItem[]) => void;
+  onClose?: () => void;
   // Hide system files (.folderkeep, .gitkeep, etc.)
   hideSystemFiles?: boolean;
   // Supabase Storage Configuration (Optional)
@@ -87,7 +93,7 @@ export interface FileManagerConfig {
 export interface FileManagerAdapter {
   listFiles(path: string): Promise<FileItem[]>;
   createFolder(path: string, name: string): Promise<FileItem>;
-  deleteItems(paths: string[]): Promise<void>;
+  deleteItems(targets: DeleteItemTarget[]): Promise<void>;
   renameItem(path: string, newName: string): Promise<FileItem>;
   moveItems(sourcePaths: string[], targetPath: string): Promise<void>;
   copyItems(sourcePaths: string[], targetPath: string): Promise<void>;

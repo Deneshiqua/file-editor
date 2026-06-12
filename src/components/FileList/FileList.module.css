@@ -1,21 +1,78 @@
-[data-fm-root] .table {
+[data-fm-root] .fileListTable {
     width: 100%;
-    border-collapse: collapse;
     font-size: var(--fm-font-size-sm);
+    border: 1px solid var(--fm-border);
+    display: flex;
+    flex-direction: column;
 }
 
-[data-fm-root] .thead {
+[data-fm-root] .fileListHeader {
     position: sticky;
     top: 0;
     z-index: 1;
-}
-
-[data-fm-root] .headerRow {
     background: var(--fm-bg-secondary);
     border-bottom: 1px solid var(--fm-border);
 }
 
+[data-fm-root] .fileListHeaderRow,
+[data-fm-root] .fileListRow,
+[data-fm-root] .fileListRowSelected {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) 100px 80px 120px;
+    align-items: center;
+}
+
+[data-fm-root] .fileListHeaderRow > *,
+[data-fm-root] .fileListRow > *,
+[data-fm-root] .fileListRowSelected > * {
+    border-right: 1px solid var(--fm-border);
+    min-width: 0;
+}
+
+[data-fm-root] .fileListHeaderRow > *:last-child,
+[data-fm-root] .fileListRow > *:last-child,
+[data-fm-root] .fileListRowSelected > *:last-child {
+    border-right: none;
+}
+
+[data-fm-root] .fileListRow,
+[data-fm-root] .fileListRowSelected {
+    border-bottom: 1px solid var(--fm-border-light);
+    cursor: pointer;
+    transition: background var(--fm-transition);
+}
+
+[data-fm-root] .fileListRow:hover {
+    background: var(--fm-hover);
+}
+
+[data-fm-root] .fileListRowSelected {
+    background: var(--fm-selected);
+}
+
+[data-fm-root] .fileListRowSelected:hover {
+    background: var(--fm-active);
+}
+
+[data-fm-root] .checkboxHeaderCell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    box-sizing: border-box;
+}
+
+[data-fm-root] .listNameHeaderCell,
+[data-fm-root] .listSizeHeaderCell,
+[data-fm-root] .listTypeHeaderCell,
+[data-fm-root] .listDateHeaderCell {
+    padding: 0;
+    overflow: hidden;
+}
+
 [data-fm-root] .headerCell {
+    width: 100%;
+    box-sizing: border-box;
     padding: 8px 12px;
     text-align: left;
     font-weight: 600;
@@ -37,6 +94,8 @@
 }
 
 [data-fm-root] .headerCellActive {
+    width: 100%;
+    box-sizing: border-box;
     padding: 8px 12px;
     text-align: left;
     font-weight: 600;
@@ -58,40 +117,21 @@
     font-size: 10px;
 }
 
-[data-fm-root] .row {
-    border-bottom: 1px solid var(--fm-border-light);
-    cursor: pointer;
-    transition: background var(--fm-transition);
-}
-
-[data-fm-root] .row:hover {
-    background: var(--fm-hover);
-}
-
-[data-fm-root] .rowSelected {
-    border-bottom: 1px solid var(--fm-border-light);
-    cursor: pointer;
-    transition: background var(--fm-transition);
-    background: var(--fm-selected);
-}
-
-[data-fm-root] .rowSelected:hover {
-    background: var(--fm-active);
-}
-
-[data-fm-root] .cell {
-    padding: 6px 12px;
+[data-fm-root] .listCheckboxCell {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
     color: var(--fm-text);
-    vertical-align: middle;
 }
 
-[data-fm-root] .nameCell {
-    padding: 6px 12px;
+[data-fm-root] .listNameCell {
+    padding: 8px 12px;
     color: var(--fm-text);
-    vertical-align: middle;
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 [data-fm-root] .checkbox {
@@ -135,35 +175,33 @@
     outline-offset: 2px;
 }
 
-[data-fm-root] .fileName {
+[data-fm-root] .listFileName {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
+    flex: 1;
 }
 
-[data-fm-root] .sizeCell {
-    padding: 6px 12px;
+[data-fm-root] .listSizeCell {
+    padding: 8px 12px;
     color: var(--fm-text-secondary);
-    vertical-align: middle;
     white-space: nowrap;
-    width: 100px;
 }
 
-[data-fm-root] .typeCell {
-    padding: 6px 12px;
+[data-fm-root] .listTypeCell {
+    padding: 8px 12px;
     color: var(--fm-text-secondary);
-    vertical-align: middle;
     text-transform: uppercase;
     font-size: var(--fm-font-size-xs);
-    width: 80px;
+    white-space: nowrap;
 }
 
-[data-fm-root] .dateCell {
-    padding: 6px 12px;
+[data-fm-root] .listDateCell {
+    padding: 8px 12px;
     color: var(--fm-text-secondary);
-    vertical-align: middle;
     white-space: nowrap;
-    width: 120px;
 }
 
 [data-fm-root] .listEmpty {
@@ -171,16 +209,17 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    min-height: 100%;
     padding: 60px 20px;
     color: var(--fm-text-muted);
     gap: 12px;
 }
 
-[data-fm-root] .emptyText {
+[data-fm-root] .listEmptyText {
     font-size: var(--fm-font-size-base);
     font-weight: 500;
 }
 
-[data-fm-root] .emptySubtext {
+[data-fm-root] .listEmptySubtext {
     font-size: var(--fm-font-size-sm);
 }

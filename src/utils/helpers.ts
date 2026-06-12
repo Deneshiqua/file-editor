@@ -1,3 +1,55 @@
+/* Normalize file-manager paths for comparisons and storage API calls */
+export function normalizeManagerPath(path: string): string {
+    if (!path || path === '/') return '/';
+
+    let normalized = path.replace(/\\/g, '/').replace(/\/+/g, '/');
+    if (!normalized.startsWith('/')) {
+        normalized = `/${normalized}`;
+    }
+    if (normalized.length > 1 && normalized.endsWith('/')) {
+        normalized = normalized.slice(0, -1);
+    }
+
+    return normalized;
+}
+
+/* Strip leading slash for Supabase Storage object keys */
+export function toStoragePath(path: string): string {
+    const normalized = normalizeManagerPath(path);
+    return normalized === '/' ? '' : normalized.slice(1);
+}
+
+/* Sanitize file names for S3/Supabase Storage object keys */
+export function sanitizeStorageFileName(fileName: string, maxBaseLength = 180): string {
+    const trimmed = fileName.trim();
+    if (!trimmed) {
+        return `file-${Date.now()}`;
+    }
+
+    const lastDot = trimmed.lastIndexOf('.');
+    const hasExtension = lastDot > 0 && lastDot < trimmed.length - 1;
+    const rawBase = hasExtension ? trimmed.slice(0, lastDot) : trimmed;
+    const extension = hasExtension ? trimmed.slice(lastDot + 1).toLowerCase() : '';
+
+    let base = rawBase
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^[-.]+|[-.]+$/g, '');
+
+    if (!base) {
+        base = 'file';
+    }
+
+    if (base.length > maxBaseLength) {
+        base = base.slice(0, maxBaseLength).replace(/[-.]+$/g, '');
+    }
+
+    const safeExtension = extension.replace(/[^a-z0-9]+/gi, '');
+    return safeExtension ? `${base}.${safeExtension}` : base;
+}
+
 /* Utility: format file sizes */
 export function formatFileSize(bytes: number): string {
     if (bytes === 0) return '—';
@@ -34,6 +86,13 @@ export function formatDate(dateString: string): string {
 export function getFileExtension(filename: string): string {
     const parts = filename.split('.');
     return parts.length > 1 ? parts.pop()!.toLowerCase() : '';
+}
+
+/* Utility: get file name without extension */
+export function getFileBaseName(filename: string): string {
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex <= 0) return filename;
+    return filename.substring(0, lastDotIndex);
 }
 
 /* Utility: truncate file name for grid view */

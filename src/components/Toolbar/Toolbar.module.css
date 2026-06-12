@@ -185,6 +185,27 @@
     color: var(--fm-primary);
 }
 
+[data-fm-root] .toolbarCloseBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 30px;
+    margin-left: 6px;
+    border: 1px solid var(--fm-border);
+    border-radius: var(--fm-radius-sm);
+    background: transparent;
+    color: var(--fm-text-muted);
+    cursor: pointer;
+    transition: all var(--fm-transition);
+    flex-shrink: 0;
+}
+
+[data-fm-root] .toolbarCloseBtn:hover {
+    color: var(--fm-text);
+    background: var(--fm-hover);
+}
+
 [data-fm-root] .categoryFilter {
     display: flex;
     align-items: center;
