@@ -56,9 +56,12 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "konva": "^9.3.18",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-konva": "^19.0.1",
+    "styled-components": "^6.4.2",
     "tsup": "^8.5.0",
     "typescript": "^5"
   },

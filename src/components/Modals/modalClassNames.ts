@@ -28,6 +28,7 @@ export const modalClassNames = {
     fileQueueInfo: 'fileQueueInfo',
     fileQueueName: 'fileQueueName',
     fileQueueSize: 'fileQueueSize',
+    fileQueueError: 'fileQueueError',
     progressBar: 'progressBar',
     progressFill: 'progressFill',
     progressFillSuccess: 'progressFillSuccess',

@@ -3,9 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
     entry: ['src/index.ts'],
     format: ['esm', 'cjs'],
-    dts: {
-        tsconfig: './tsconfig.package.json',
-    },
+    dts: true,
     tsconfig: './tsconfig.package.json',
     sourcemap: true,
     clean: true,
