@@ -5,6 +5,7 @@ Modern File Manager Pro is a Next.js file manager component with preview, upload
 ## What's New in 0.1.7
 
 - **Demo / Vercel build**: `@supabase/supabase-js` is now installed as a `devDependency` so `next build` (including Turbopack on Vercel) can resolve `SupabaseAdapter` imports
+- **Package manager**: Repo builds with **pnpm** (`packageManager` + `vercel.json`). The stale `yarn.lock` was removed so Vercel no longer runs `yarn run build`
 - **Peer dependency unchanged**: Host apps that use `SupabaseAdapter` must still install `@supabase/supabase-js` themselves; it remains an optional peer dependency of the published package
 
 ## What's New in 0.1.6
