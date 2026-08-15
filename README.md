@@ -2,6 +2,11 @@
 
 Modern File Manager Pro is a Next.js file manager component with preview, upload, download, rename, move, copy, text editing, image editing, grid and list views, and pluggable storage adapters.
 
+## What's New in 0.1.7
+
+- **Demo / Vercel build**: `@supabase/supabase-js` is now installed as a `devDependency` so `next build` (including Turbopack on Vercel) can resolve `SupabaseAdapter` imports
+- **Peer dependency unchanged**: Host apps that use `SupabaseAdapter` must still install `@supabase/supabase-js` themselves; it remains an optional peer dependency of the published package
+
 ## What's New in 0.1.6
 
 - **List view overhaul**: CSS Grid columns (name, size, type, modified), default sort by modified descending, unique class names to prevent CSS collisions in bundled `dist/index.css`
@@ -61,14 +66,16 @@ const adapter = new SupabaseAdapter({
 ## Installation
 
 ```bash
-npm install modern-fm-pro@0.1.6
+npm install modern-fm-pro@0.1.7
 ```
 
-If you want Supabase support:
+If you want Supabase support, install the client library as well (optional peer dependency):
 
 ```bash
-npm install modern-fm-pro@0.1.6 @supabase/supabase-js
+npm install modern-fm-pro@0.1.7 @supabase/supabase-js
 ```
+
+`@supabase/supabase-js` is **not** bundled with the package. Without it, `RestAdapter` and the rest of the UI still work; only `SupabaseAdapter` requires the peer package.
 
 ## Quick Start
 
@@ -156,7 +163,9 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3001` (default demo port).
+
+The demo app imports `SupabaseAdapter`, so `@supabase/supabase-js` is listed under `devDependencies` and is installed with this repository. That keeps Vercel / `next build` working without forcing Supabase onto every npm consumer.
 
 ## Publishing
 
