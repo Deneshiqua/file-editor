@@ -168,6 +168,12 @@ npm run dev
 
 Open `http://localhost:3001` (default demo port).
 
+Demo routes:
+
+- `/` — live FileManager
+- `/demo/form` — selection-mode form picker
+- `/docs` — full API / config documentation (Turkish)
+
 The demo app imports `SupabaseAdapter`, so `@supabase/supabase-js` is listed under `devDependencies` and is installed with this repository. That keeps Vercel / `next build` working without forcing Supabase onto every npm consumer.
 
 ## Publishing

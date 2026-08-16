@@ -134,6 +134,12 @@ body {
   border-color: rgba(255, 255, 255, 0.15);
 }
 
+.demo-link-active {
+  background: rgba(99, 102, 241, 0.18);
+  color: #e5e7eb;
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
 .demo-main {
   flex: 1;
   padding: 24px 32px 32px;

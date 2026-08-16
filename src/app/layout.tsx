@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Modern File Manager Pro",
   description:
-    "Modern File Manager Pro is a premium file management component for Next.js applications with upload, preview, editing, drag and drop, and flexible storage adapters.",
+    "Modern File Manager Pro is a premium file management component for Next.js applications with upload, preview, editing, drag and drop, and flexible storage adapters. Includes docs for FileManagerConfig, RestAdapter, and SupabaseAdapter.",
   keywords: [
     "nextjs",
     "file manager",

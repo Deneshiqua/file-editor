@@ -3,8 +3,8 @@
 import type { FileCategory, FileItem, FileManagerAdapter } from '@/types';
 import React, { useState } from 'react';
 
+import { DemoNav } from '@/components/DemoNav/DemoNav';
 import { FileManager } from '@/components/FileManager/FileManager';
-import Link from 'next/link';
 import { RestAdapter } from '@/adapters/RestAdapter';
 import { SupabaseAdapter } from '@/adapters/SupabaseAdapter';
 import styles from './page.module.css';
@@ -74,14 +74,12 @@ export default function FormDemoPage() {
 
     return (
         <div className={styles.container}>
+            <DemoNav />
             <div className={styles.header}>
                 <div className={styles.headerContent}>
-                    <Link href="/" className={styles.backButton}>
-                        ← Back to File Manager
-                    </Link>
-                    <h1 className={styles.title}>📝 Form Integration Demo</h1>
+                    <h1 className={styles.title}>Form Integration Demo</h1>
                     <p className={styles.subtitle}>
-                        Example of using File Manager as a file picker in forms
+                        File Manager&apos;i formlarda file-picker olarak kullanma ornegi
                     </p>
                 </div>
             </div>

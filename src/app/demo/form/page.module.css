@@ -1,38 +1,16 @@
 .container {
     min-height: 100vh;
     background: linear-gradient(135deg, #0f1117 0%, #1a1d2e 100%);
-    padding: 40px 20px;
+    padding: 0 20px 40px;
 }
 
 .header {
     text-align: center;
-    margin-bottom: 40px;
+    margin: 32px 0 40px;
 }
 
 .headerContent {
     position: relative;
-}
-
-.backButton {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    color: #9ca3af;
-    text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: all 0.2s;
-    margin-bottom: 20px;
-}
-
-.backButton:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #e5e7eb;
-    border-color: rgba(255, 255, 255, 0.15);
 }
 
 .title {
